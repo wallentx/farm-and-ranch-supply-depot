@@ -1,0 +1,28 @@
+---
+name: Update Actions Scripts
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'bin/**'
+jobs:
+  update-readme:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@master
+      - name: Set job env
+        run: |
+          .github/setJobEnv
+      - name: Update README.md
+        run: |
+          .github/updateMd
+      - uses: EndBug/add-and-commit@v4
+        with:
+          add: 'README.md'
+      - name: Push changes
+        uses: ad-m/github-push-action@master
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
