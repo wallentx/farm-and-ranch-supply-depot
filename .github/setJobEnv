@@ -1,16 +1,24 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -e
 
-
-GITUSER=$(git config -l | grep user.name | cut -d "=" -f2)
+## Description: Sets env for all job steps from GitHub event, as well as some predefined values to be used for any job. This step should always be included in any action.
 
 gitRepo() {
-	git remote -v 2>/dev/null | \
-		head -n1 | \
-		awk '{print $2}' | \
+	git remote -v 2>/dev/null |
+		head -n1 |
+		awk '{print $2}' |
 		sed -e 's,.*:\(.*/\)\?,,' -e 's/\.git$//'
 }
 
+getrunnerenv() {
+	aws secretsmanager \
+		get-secret-value \
+		--secret-id actions/runner-env \
+		--query SecretString \
+		--output text \
+		--region us-east-1 |
+		jq -r 'to_entries|map("\(.key)=\(.value|tostring)")|.[]'
+}
 # shellcheck disable=SC2046
 export $(getrunnerenv)
 
@@ -36,57 +44,49 @@ echo "――――――――――――――――――――――"
 echo "Setting env for steps:"
 echo "――――――――――――――――――――――"
 
-echo "::set-env name=GPR_TOKEN::$GPR_TOKEN"
-	echo "Set GPR_TOKEN=******"
+echo "GPR_TOKEN=$GPR_TOKEN" >>$GITHUB_ENV
+echo "Set GPR_TOKEN=******"
+
+echo "NPM_AUTH_TOKEN=$GPR_TOKEN" >>$GITHUB_ENV
+echo "Set NPM_AUTH_TOKEN=******"
+
+echo "NODE_AUTH_TOKEN=$GPR_TOKEN" >>$GITHUB_ENV
+echo "Set NODE_AUTH_TOKEN=******"
+
+echo "NPM_TOKEN=$GPR_TOKEN" >>$GITHUB_ENV
+echo "Set NPM_TOKEN=******"
 
 export REPO=$(gitRepo)
-	echo "::set-env name=REPO::$REPO"
-	echo "Set REPO=$REPO"
+echo "REPO=$REPO" >>$GITHUB_ENV
+echo "Set REPO=$REPO"
 
 export LANGUAGE=$(curl -s -X GET https://$GPR_TOKEN:@api.github.com/repos/$GITHUB_REPOSITORY | jq -r '.language')
-	echo "::set-env name=LANGUAGE::$LANGUAGE"
-	echo "Set LANGUAGE=$LANGUAGE"
+echo "LANGUAGE=$LANGUAGE" >>$GITHUB_ENV
+echo "Set LANGUAGE=$LANGUAGE"
 
 export BRANCH=${GITHUB_REF#refs/heads/}
+echo "BRANCH=$BRANCH" >>$GITHUB_ENV
+echo "Set BRANCH=$BRANCH"
+echo "TARGET_ENV=$TARGET_ENV" >>$GITHUB_ENV
+echo "Set TARGET_ENV=$TARGET_ENV"
+echo "NODE_ENV=$NODE_ENV" >>$GITHUB_ENV
+echo "Set NODE_ENV=$NODE_ENV"
 
 export RFC_REPO=$(echo $REPO | sed 's/\./-/g; s/_/-/g')
-	echo "::set-env name=RFC_REPO::$RFC_REPO"
-	echo "Set RFC_REPO=$RFC_REPO"
+echo "RFC_REPO=$RFC_REPO" >>$GITHUB_ENV
+echo "Set RFC_REPO=$RFC_REPO"
 
 export GIT_SHORT_HASH=$(echo ${GITHUB_SHA} | cut -c1-8)
-	echo "::set-env name=GIT_SHORT_HASH::$GIT_SHORT_HASH"
-
-export GPR_PROJECT=docker.pkg.github.com/$GITUSER/$REPO
-	echo "::set-env name=GPR_PROJECT::$GPR_PROJECT"
-	echo "Set GPR_PROJECT=$GPR_PROJECT"
+echo "GIT_SHORT_HASH=$GIT_SHORT_HASH" >>$GITHUB_ENV
+echo "Set GIT_SHORT_HASH=$GIT_SHORT_HASH"
 
 export REVISION=${GITHUB_REF##*/}
-	echo "::set-env name=REVISION::$REVISION"
-	echo "Set REVISION=$REVISION"
-
-export ECR_PREFIX="$ACCOUNT.dkr.ecr.us-east-1.amazonaws.com/$RFC_REPO"
-	echo "::set-env name=ECR_PREFIX::$ECR_PREFIX"
-	echo "Set ECR_PREFIX=$ECR_PREFIX"
-
-export ECR_TAG="$ECR_PREFIX:$GIT_SHORT_HASH"
-	echo "::set-env name=ECR_TAG::$ECR_TAG"
-	echo "Set ECR_TAG=$ECR_TAG"
-
-export DHREPO_NAME=$GITUSER/$REPO
-	echo "::set-env name=DHREPO_NAME::$DHREPO_NAME"
-	echo "Set DHREPO_NAME=$DHREPO_NAME"
-
-export DHIMAGE_TAG="$DHREPO_NAME:$GIT_SHORT_HASH"
-	echo "::set-env name=DHIMAGE_TAG::$DHIMAGE_TAG"
-	echo "Set DHIMAGE_TAG=$DHIMAGE_TAG"
-
-export DHIMAGE_TAG_VERSION="$DHREPO_NAME:$(echo $GITHUB_REF | cut -d / -f 3)"
-	echo "::set-env name=DHIMAGE_TAG_VERSION::$DHIMAGE_TAG_VERSION"
-	echo "Set DHIMAGE_TAG_VERSION=$DHIMAGE_TAG_VERSION"
+echo "REVISION=$REVISION" >>$GITHUB_ENV
+echo "Set REVISION=$REVISION"
 
 export DOCKER_BUILDKIT=1
-	echo "::set-env name=DOCKER_BUILDKIT::$DOCKER_BUILDKIT"
-	echo "Set DOCKER_BUILDKIT=$DOCKER_BUILDKIT"
+echo "DOCKER_BUILDKIT=$DOCKER_BUILDKIT" >>$GITHUB_ENV
+echo "Set DOCKER_BUILDKIT=$DOCKER_BUILDKIT"
 
 echo "――――――――――――――――――――――"
 echo "Complete"
