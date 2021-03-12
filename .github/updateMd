@@ -6,7 +6,7 @@ set -e
 PROJECT_ROOT=$(git rev-parse --show-toplevel)
 SUPPLY_BIN=$PROJECT_ROOT/bin
 
-
+README_TOP=$(cat <<- EOF
 ## Usage
 
 #### Adding Supplies
