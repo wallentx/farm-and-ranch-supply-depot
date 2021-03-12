@@ -5,9 +5,7 @@
 TARGET=$1
 TMPSIZE=350000000
 
-#calc_avail() {
 AVAIL=$(df --output=size $TARGET | tail -n 1)
-#}
 
 PLOTCOUNT=$(($AVAIL / $TMPSIZE))
 
