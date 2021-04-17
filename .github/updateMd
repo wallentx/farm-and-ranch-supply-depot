@@ -41,7 +41,7 @@ echo "$README_TOP" > README.md
 
 
 for SUPPLY in "$SUPPLY_BIN"/*; do
-	GHFILENAME=$(basename "$ACTION")
+	GHFILENAME=$(basename "$SUPPLY")
 	DESCRIPTION=$(sed -n 's/^## Description: //p' "$SUPPLY")
 	echo -e "   - 📄 [${GHFILENAME//-/\\-}](/bin/$GHFILENAME)" >> README.md
 	if [[ -n "$DESCRIPTION" ]]; then
