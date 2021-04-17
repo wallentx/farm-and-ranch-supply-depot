@@ -40,7 +40,7 @@ EOF
 echo "$README_TOP" > README.md
 
 
-for SUPPLY in "$UPPLY_BIN"/*; do
+for SUPPLY in "$SUPPLY_BIN"/*; do
 	GHFILENAME=$(basename "$ACTION")
 	DESCRIPTION=$(sed -n 's/^## Description: //p' "$SUPPLY")
 	echo -e "   - 📄 [${GHFILENAME//-/\\-}](/bin/$GHFILENAME)" >> README.md
