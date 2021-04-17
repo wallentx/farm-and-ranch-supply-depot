@@ -1,0 +1,7 @@
+[Unit]
+Description=Maintains plotting with a slight stagger
+
+[Service]
+ExecStart=/full/path/to/OxPlow
+WorkingDirectory=/home/YourUserHere
+KillMode=process

@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+
+## Description: Foreman - This script assumes a few things - That your -d is a fast buffer volume to momentarily hold your plots until the Excavator script moves it to one of many HDDs mounted at /mnt/plots* (/mnt/plots, /mnt/plots2, /mnt/plots3, etc.). The purpose of this is to take away the task of moving the final plot to slower storage, from the plotting task. Time spent moving final plots can instead be spent on starting new plotting tasks. This script uses https://github.com/z3bra/wendy to watch your buffer directory, and trigger the Excavator upon inotify event 128 - a file rename - which is the last task of the plot creation. This should be ran as a daemon. Please edit this file to set the BUFFER variable to match your -d volume.
+
+export BUFFER=/mnt/your/buffer/here
+
+wendy -v -m 128 -w $BUFFER/ bash -c 'echo "Acquired land! Fencing in $(basename $WENDY_INODE) . . ." && Excavator' | systemd-cat -t excavator &

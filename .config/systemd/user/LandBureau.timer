@@ -1,0 +1,10 @@
+[Unit]
+Description=LandBureau timer
+
+[Timer]
+# Tune this timer accordinly to your system
+OnUnitActiveSec=15min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

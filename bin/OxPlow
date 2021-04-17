@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+
+## Description: OxPlow - Plot creation task. This is executed automatically by the systemd LandBureau service. Please review this file and make changes appropriate for your system.
+
+# This number can be found by evaluating your tmp space with the LandSurvey script. Do not over-budget this value, or you will fill up your -t/-2 and halt plotting.
+MAX_PLOTS=17
+
+# This value is your -d buffer volume. This should be fast storage, with enough space to hold the same number of completed plots that you have set for $MAX_PLOTS. These will only be on this volume briefly, as they trigger a task to immediately move them to your slower HDD storage.
+BUFFER=/mnt/path/to/your/buffer
+
+# Existing plot discovery
+PLOTS=$(pgrep -fa 'chia plots create' | wc -l)
+
+if [[ $PLOTS -lt $MAX_PLOTS ]]; then
+	echo "Plowing land."
+# Edit this line to match the path appropriate to your system
+	source ~/chia-blockchain/activate
+
+# Edit the values below as needed
+	nohup chia plots create \
+    -n 1 \
+    -k 32 \
+    -b 8000 \
+    -r 8 \
+    -u 128 \
+    -t /mnt/ssdarray1 \
+    -2 /mnt/ssdarray2 \
+    -d $BUFFER | \
+    systemd-cat -t chia$(($PLOTS+1)) &
+fi
