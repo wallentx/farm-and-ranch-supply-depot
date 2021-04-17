@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+
+TARGET=$1
+TMPSIZE=350000000
+AVAIL=$(df --output=size --block-size=1 $TARGET | tail -n 1 | xargs)
+PLOTCOUNT=$(($AVAIL / $TMPSIZE))
+
+if [[ $PLOTCOUNT -gt 0 ]]; then
+	echo "If volume is empty, you can execute $PLOTCOUNT unstaggered k32 plots on $TARGET."
+else
+	echo "Volume is too small to use as tmp."
+fi
