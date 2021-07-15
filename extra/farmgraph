@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+
+## Description:  A pretty graph that shows your eligible plot distribution.
+
+# Depends:
+# uplot - https://github.com/red-data-tools/YouPlot
+# gem install youplot
+
+
+LOGPATH=~/.chia/mainnet/log/debug.*
+
+win_distrib() {
+	stdbuf -o0 grep -s 'eligible' \
+	<(stdbuf -o0 cat $LOGPATH) | \
+	awk -F" " '{print $5}'
+}
+
+win_distrib | uplot c -r -t "(E)ligible plots per Proof Check, by (O)ccurrence" -x "O" -y "E  " -b barplot

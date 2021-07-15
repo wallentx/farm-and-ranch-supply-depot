@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+
+p1bench() {
+	journalctl --no-hostname -o cat -t xplot | grep 'Phase 1 took' | awk '{print $4}' | column -t -L | sed -e 's/^/ /'
+}
+
+p2bench() {
+	journalctl --no-hostname -o cat -t xplot | grep 'Phase 2 took' | awk '{print $4}' | column -t -L | sed -e 's/^/ /'
+}
+
+p3bench() {
+	journalctl --no-hostname -o cat -t xplot | grep 'Phase 3 took' | awk '{print $4}' | column -t -L | sed -e 's/^/ /'
+}
+
+p4bench() {
+	journalctl --no-hostname -o cat -t xplot | grep 'Phase 4 took' | awk '{print $4}' | column -t -L | sed -e 's/^/ /'
+}
+
+benchthreads() {
+	journalctl --no-hostname -o cat -t xplot | grep 'Number of Threads:' | awk '{print $4}' | column -t -L | sed -e 's/^/ /'
+}
+
+ptimesbench() {
+	journalctl --no-hostname -o cat -t xplot | grep 'Total plot creation time was' | awk '{print $6}' | column -t -L | sed -e 's/^/ /'
+}
+
+PTBENCH=$(ptimesbench | wc -l)
+
+
+echo ""
+# get logo https://github.com/wallentx/farm-and-ranch-supply-depot/raw/main/extra/logo.txt.zst
+zstdcat ~/bin/logo.txt.zst
+
+prntbody() {
+	{ printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "#" "Threads" "Phase1" "Phase2" "Phase3" "Phase4" "Total $PTBENCH"; paste <(benchthreads) <(p1bench) <(p2bench) <(p3bench) <(p4bench) <(ptimesbench) | nl -n ln; }
+}
+
+while getopts "l:r:" arg; do
+  case ${arg} in
+      l)  OPTCMD="${OPTARG}"
+          prntbody | sed -n '1p;/^'${OPTARG}' /p' | ptable 7 blue
+          ;;
+      r)  OPTCMD=$(echo $2 $3 $4 | tr ' ' '-' | tr ',' '-' | tr ':' '-')
+          LINESTART=$(echo $OPTCMD | cut -d'-' -f1)
+          LINEEND=$(echo $OPTCMD | cut -d'-' -f2)
+          COUNT=$(($LINEEND - $LINESTART))
+          prntbody | sed -n '1p;/^'$LINESTART' /,+'$COUNT'p' | ptable 7 blue
+          ;;
+      *)  echo "invalid option"
+          exit 1
+          ;;
+  esac
+done
+
+if [ -z "$OPTCMD" ]; then
+   prntbody | ptable 7 blue
+   exit
+fi
