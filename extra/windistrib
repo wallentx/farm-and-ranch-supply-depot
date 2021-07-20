@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+
+## Description: Show (or graph) eligible plot distribution per Proof Check, by occurrence.
+
+LOGPATH=$HOME/.chia/mainnet/log/farmer-debug.log*
+
+if [[ ! $(ls -A $LOGPATH) ]]; then
+  echo "No files found at $LOGPATH"
+	echo "Update line 3 of $0 and try again"
+	exit 1
+fi
+
+## Functions
+usage() {
+	echo "Usage: $0 [OPTION]" 1>&2
+	exit 1
+}
+
+plottery() {
+	stdbuf -o0 grep -s 'eligible' \
+		<(stdbuf -o0 cat $LOGPATH) | \
+		awk -F" " '{print "  ", $5"\t", "┃   ", $13}'
+}
+
+showdistrib() {
+	cat <<-'EOF'
+	E: Eligible plots
+	O: Occurrence
+
+	  E:   O:
+	 ━━━━╋━━━━
+	EOF
+
+	plottery | \
+		awk '{print $1}' | \
+		tail +4 | \
+		sort -n | \
+		uniq -c | \
+		sort -n | \
+		awk '{print "  "$2"•", $1}' | \
+		column -s'•' -t
+}
+
+wingraph() {
+	if ! [ -x "$(command -v uplot)" ]; then
+  	echo 'Error: uplot is not installed, or installed gem is not added to PATH' >&2
+		echo 'Get it at:  https://github.com/red-data-tools/YouPlot' >&2
+		echo 'Get it with:  gem install youplot' >&2
+  	exit 1
+	fi
+	plottery | \
+		uplot c -r \
+		-t "(E)ligible plots per Proof Check, by (O)ccurrence" \
+		-x "O" \
+		-y "E  " \
+		-b barplot
+}
+## End Functions
+
+while getopts "g" opt; do
+  case "$opt" in
+    g)
+        wingraph
+				exit 0
+        ;;
+    *)
+        usage
+        ;;
+    esac
+done
+
+showdistrib
+#windistrib
