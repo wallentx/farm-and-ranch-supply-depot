@@ -2,7 +2,15 @@
 
 ## Description: Show (or graph) eligible plot distribution per Proof Check, by occurrence.
 
-LOGPATH="$HOME/.chia/mainnet/log/farmer-debug.log*"
+# Manually set this, and uncomment if you want to display plot count
+#COUNT=false
+#CHIAPATH="$HOME/path/to/chia-blockchain"
+#if [[ $COUNT == true ]] && [[ ! -z $CHIAPATH ]]; then
+#  source $CHIAPATH/activate
+#  PLOTCOUNT=$(chia farm summary | grep 'plots of size' | grep -o '[^$(printf '\t') ].*')
+#fi
+
+LOGPATH="$HOME/.chia/mainnet/log/debug.log*"
 
 if [[ ! $(ls -A $LOGPATH) ]]; then
   echo "No files found at $LOGPATH"
@@ -18,12 +26,13 @@ usage() {
 
 plottery() {
   stdbuf -o0 grep -s 'eligible' \
-    <(stdbuf -o0 cat "$LOGPATH") | \
+    <(stdbuf -o0 cat $LOGPATH) | \
     awk -F" " '{print "  ", $5"\t", "┃   ", $13}'
 }
 
 showdistrib() {
   cat <<-'EOF'
+
   E: Eligible plots
   O: Occurrence
     E:   O:
@@ -38,6 +47,9 @@ EOF
     sort -n | \
     awk '{print "  "$2"•", $1}' | \
     column -s'•' -t
+  if [[ $COUNT == true ]]; then
+    echo -e "\nWith: $PLOTCOUNT"
+  fi
 }
 
 wingraph() {
@@ -47,20 +59,23 @@ wingraph() {
     echo 'Get it with:  gem install youplot' >&2
     exit 1
   fi
+  echo ""
   plottery | \
     uplot c -r \
     -t "(E)ligible plots per Proof Check, by (O)ccurrence" \
     -x "O" \
     -y "E  " \
     -b barplot
+  if [[ $COUNT == true ]]; then
+    echo -e "\nWith: $PLOTCOUNT"
+  fi
 }
 ## End Functions
 
 while getopts "g" opt; do
   case "$opt" in
     g)
-        wingraph
-        exit 0
+        GRAPH=true
         ;;
     *)
         usage
@@ -68,4 +83,8 @@ while getopts "g" opt; do
     esac
 done
 
-showdistrib
+if [[ $GRAPH == true ]]; then
+  wingraph
+else
+  showdistrib
+fi
