@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+
+PLOTLIST=$(mktemp /tmp/PLTXXXXXXXX)
+
+echo "It is strongly advised to stop all plottind and farming prior to running this."
+read -rsn1 -p"Press any key to continue";echo
+
+if [ -z $CHIA_HOME ]; then
+	echo "What is the full path to your 'chia-blockchain' folder?"
+	read -p "Chia repo folder: " CHIA_HOME
+	echo ""
+fi
+
+chiaOn() {
+	source $CHIA_HOME/activate
+}
+
+chiaOn
+chia plots show | \
+    tail -n +5 > $PLOTLIST
+
+cat $PLOTLIST | \
+  xargs -I {} bash -c 'mkdir {}/solo && mv {}/*.plot {}/solo/ && mkdir {}/pool'
+
+cat $PLOTLIST | \
+	xargs -I {} bash -c 'chiaOn && chia plots remove -d {} && chia plots add -d {}/solo && chia plots add -d {}/pool'
