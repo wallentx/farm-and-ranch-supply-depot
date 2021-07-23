@@ -2,7 +2,7 @@
 
 PLOTLIST=$(mktemp /tmp/PLTXXXXXXXX)
 
-echo "It is strongly advised to stop all plottind and farming prior to running this."
+echo "It is strongly advised to stop all plotting and farming prior to running this."
 read -rsn1 -p"Press any key to continue";echo
 
 if [ -z $CHIA_HOME ]; then
