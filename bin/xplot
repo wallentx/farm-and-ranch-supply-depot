@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+
+
+COUNT=${1:--1}
+CORES=${2:-24}
+TEMP1=${3:-/mnt/ssdarray1/}
+TEMP2=${4:-$TEMP1}
+
+# PPK=$(cat ~/.ssh/ppk)
+SCK=$(cat ~/.ssh/sck)
+FPK=$(cat ~/.ssh/fpk)
+
+nohup chia_plot -c $SCK -f $FPK -n $COUNT -r $CORES -K 2 -u 512 -v 512 -t $TEMP1 -2 $TEMP2 -d $TEMP1 | systemd-cat -t xplot &
