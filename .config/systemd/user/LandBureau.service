@@ -1,7 +1,7 @@
 [Unit]
-Description=Maintains plotting with a slight stagger
+Description=Ensures a set number of plots are always running in phase 1
 
 [Service]
-ExecStart=/full/path/to/OxPlow
+ExecStart=/full/path/to/phasegate
 WorkingDirectory=/home/YourUserHere
 KillMode=process

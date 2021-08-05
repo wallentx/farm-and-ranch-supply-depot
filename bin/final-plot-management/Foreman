@@ -6,4 +6,4 @@
 WATCH_TARGET=$1
 
 # Get wendy - https://github.com/z3bra/wendy
-wendy -v -m 128 -w $WATCH_TARGET bash -c 'echo "Acquired land! Fencing in $(basename $WENDY_INODE) . . ." && WATCH_TARGET=$WATCH_TARGET Excavator' | systemd-cat -t foreman &
+wendy -v -m 128 -w "$WATCH_TARGET" bash -c 'echo "Acquired land! Fencing in $(basename $WENDY_INODE) . . ." && WATCH_TARGET=$WATCH_TARGET Excavator' | systemd-cat -t foreman &

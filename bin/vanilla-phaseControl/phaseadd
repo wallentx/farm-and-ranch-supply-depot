@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+
+PIDARRAY=$(pgrep -fa 'chia plots create' | awk '{print $1}')
+
+printPids() {
+  for CHP in $PIDARRAY; do
+    CH_PID=$(("$CHP" + 1))
+    journalctl _PID=$CH_PID --no-page --no-hostname -o cat | tac | grep -m1 -o "Starting phase .*" | cut -f1 -d/
+  done
+}
+
+printPids | uniq -c | grep 'phase 1' | awk '{print $1}' | awk '{s+=$1} END {print s}'

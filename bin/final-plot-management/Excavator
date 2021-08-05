@@ -5,11 +5,11 @@
 # FindMounts
 MOUNT_LIST="/tmp/$(basename "$0")-mounts.$$.list"
 find /mnt -type d -name 'plots*' | sort -R > "$MOUNT_LIST"
-​
+
 # FindBusy
 BUSY_LIST="/tmp/$(basename "$0")-busy.$$.list"
-pgrep -fa '^mv $WATCH_TARGET/plot-*' | sed -e 's/^.* //;s/.$//' > "$BUSY_LIST"
-​
+pgrep -fa "^mv $WATCH_TARGET/plot-*" | sed -e 's/^.* //;s/.$//' > "$BUSY_LIST"
+
 # RemoveBusy
 if [[ -s "$BUSY_LIST" ]]; then
 	while read -r BUSY; do
@@ -17,7 +17,7 @@ if [[ -s "$BUSY_LIST" ]]; then
     sed -i "/^$ESC_BUSY\b/Id" "$MOUNT_LIST"
 	done <"$BUSY_LIST"
 fi
-​
+
 # CheckMounts
 n=0
 until [ "$n" -ge 3 ]; do
@@ -30,7 +30,7 @@ if [[ $n -eq 3 ]]; then
 	echo "Could not find an available mount. Giving up"
 	exit 1
 fi
-​
+
 # IterateMounts
 while read -r TARGET; do
 	PLOTNAME="$(basename "$WENDY_INODE")"
@@ -47,6 +47,6 @@ while read -r TARGET; do
 		break
 	fi
 done < "$MOUNT_LIST"
-​
+
 rm "$MOUNT_LIST"
 rm "$BUSY_LIST"

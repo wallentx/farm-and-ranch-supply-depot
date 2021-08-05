@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+
+PLOTS=$("$HOME"/bin/chpids -c)
+PHASECT=$("$HOME"/bin/phaseadd)
+
+if [[ -z ${PLOTS} ]]; then
+  PLOTS=0
+fi
+
+if [[ -z ${PHASECT} ]]; then
+  PHASECT=0
+fi
+
+# This number (6) is specific to my system.
+# You have to tune this to how many processes you are able to run in phase 1, 
+# in addition to the processes in the downstream phases
+if [[ ${PHASECT} -ge 6 ]]; then
+  echo "2many"
+  exit 0
+# This number (5) is specific to my system.
+# You have to tune this to how many processes you are able to run in phase 1, 
+# in addition to the processes in the downstream phases
+elif [[ ${PHASECT} -le 5 ]]; then
+  echo "Anutha one."
+  source "$HOME"/chia-blockchain/activate
+  nohup chia plots create \
+    -n 1 \
+    -k 32 \
+    -b 3490 \
+    -r 4 \
+    -u 128 \
+    -t /mnt/ssdarray1 \
+    -d /mnt/ssdarray1 | \
+    systemd-cat -t chia$((PLOTS+1)) &
+else
+  echo "confused"
+  exit 1
+fi
