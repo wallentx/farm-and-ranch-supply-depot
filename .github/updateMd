@@ -4,7 +4,7 @@ set -e
 ## Description: Automatically updates README.md
 
 PROJECT_ROOT=$(git rev-parse --show-toplevel)
-SUPPLY_BIN=$PROJECT_ROOT/bin
+SUPPLY_BIN=$(find "$PROJECT_ROOT"/bin -type d)
 
 README_TOP=$(cat <<- EOF
 ## Usage
@@ -39,14 +39,15 @@ EOF
 
 echo "$README_TOP" > README.md
 
-
-for SUPPLY in "$SUPPLY_BIN"/*; do
-	GHFILENAME=$(basename "$SUPPLY")
-	DESCRIPTION=$(sed -n 's/^## Description: //p' "$SUPPLY")
-	echo -e "   - 📄 [${GHFILENAME//-/\\-}](/bin/$GHFILENAME)" >> README.md
-	if [[ -n "$DESCRIPTION" ]]; then
-		echo -e "      - _${DESCRIPTION}_" >> README.md
-	fi
+for CRATE in "$SUPPLY_BIN"/*; do
+	for SUPPLY in "$CRATE"/*; do
+		GHFILENAME=$(basename "$SUPPLY")
+		DESCRIPTION=$(sed -n 's/^## Description: //p' "$SUPPLY")
+		echo -e "   - 📄 [${GHFILENAME//-/\\-}](/$CRATE/$GHFILENAME)" >> README.md
+		if [[ -n "$DESCRIPTION" ]]; then
+			echo -e "      - _${DESCRIPTION}_" >> README.md
+		fi
+	done
 done
 
 echo "$README_BOTTOM" >> README.md
