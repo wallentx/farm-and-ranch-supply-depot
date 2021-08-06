@@ -40,7 +40,7 @@ EOF
 
 echo "$README_TOP" > README.md
 
-for CRATE in "$SUPPLY_BIN"/*; do
+while read -r CRATE; do
 	for SUPPLY in "$CRATE"/*; do
 		GHFILENAME=$(basename "$SUPPLY")
 		DESCRIPTION=$(sed -n 's/^## Description: //p' "$SUPPLY")
@@ -49,7 +49,7 @@ for CRATE in "$SUPPLY_BIN"/*; do
 			echo -e "      - _${DESCRIPTION}_" >> README.md
 		fi
 	done
-done
+done < <("$SUPPLY_BIN")
 
 echo "$README_BOTTOM" >> README.md
 
