@@ -49,7 +49,7 @@ while read -r CRATE; do
 			echo -e "      - _${DESCRIPTION}_" >> README.md
 		fi
 	done
-done < <("$SUPPLY_BIN")
+done < <(find "$WAREHOUSE" -type d)
 
 echo "$README_BOTTOM" >> README.md
 
