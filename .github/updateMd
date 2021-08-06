@@ -4,7 +4,8 @@ set -e
 ## Description: Automatically updates README.md
 
 PROJECT_ROOT=$(git rev-parse --show-toplevel)
-SUPPLY_BIN=$(find "$PROJECT_ROOT"/bin -type d)
+WAREHOUSE="$PROJECT_ROOT"/bin
+SUPPLY_BIN=$(find "$WAREHOUSE" -type d)
 
 README_TOP=$(cat <<- EOF
 ## Usage
