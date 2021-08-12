@@ -1,0 +1,105 @@
+#!/usr/bin/env bash
+
+## Description: Show (or graph) eligible plot distribution per Proof Check, by occurrence.
+
+# Manually set this if you want to display plot count
+COUNT=true
+CHIAPATH="$HOME/chia-blockchain"
+if [[ $COUNT == true ]] && [[ ! -z $CHIAPATH ]]; then
+  source $CHIAPATH/activate
+  PLOTCOUNT=$(chia farm summary | grep 'plots of size' | grep -o '[^$(printf '\t') ].*')
+fi
+
+LOGPATH="$HOME/.chia/mainnet/log/debug.log*"
+
+if [[ ! $(ls -A $LOGPATH) ]]; then
+  echo "No files found at $LOGPATH"
+  echo "Update line 3 of $0 and try again"
+  exit 1
+fi
+
+## Functions
+usage() {
+  echo "Usage: $0 [OPTION]" 1>&2
+  exit 1
+}
+
+plottery() {
+	cat $LOGPATH | \
+	grep -o 'Found.*proofs' | \
+	sort | \
+	uniq -c | \
+	awk -F" " '{print "  ", $3"\t", "┃   ", $1}'
+
+#	grep -o 'Found.*proofs' "$LOGPATH" | \
+#	sort | \
+#	uniq -c
+#	awk -F" " '{print "  ", $5"\t", "┃   ", $13}'
+
+#cat ~/.chia/mainnet/log/farmer-debug.log* | grep -o 'Found.*proofs' | sort | uniq -c
+#  stdbuf -o0 grep -s 'eligible' \
+#    <(stdbuf -o0 cat $LOGPATH) | \
+#    awk -F" " '{print "  ", $5"\t", "┃   ", $13}'
+}
+
+showdistrib() {
+  cat <<-'EOF'
+
+  P: Proofs Found
+  O: Occurrence
+    P:   O:
+   ━━━━╋━━━━
+EOF
+
+  plottery | column -t | \
+#    awk '{print $1}' | \
+#    tail +4 | \
+#    sort -n | \
+#    uniq -c | \
+#    sort -n | \
+    awk '{print "   "$1"•", $2, $3}' | \
+    column -s'•' -t
+  if [[ $COUNT == true ]]; then
+    echo -e "\nWith: $PLOTCOUNT"
+  fi
+}
+
+wingraph() {
+  if ! [ -x "$(command -v uplot)" ]; then
+    echo 'Error: uplot is not installed, or installed gem is not added to PATH' >&2
+    echo 'Get it at:  https://github.com/red-data-tools/YouPlot' >&2
+    echo 'Get it with:  gem install youplot' >&2
+    exit 1
+  fi
+  echo ""
+  plottery
+
+#    uplot c -r \
+#    -t "(E)ligible plots per Proof Check, by (O)ccurrence" \
+#    -x "O" \
+#    -y "E  " \
+#    -b barplot
+  if [[ $COUNT == true ]]; then
+    echo -e "\nWith: $PLOTCOUNT"
+  fi
+}
+## End Functions
+
+OPTSTR='g'
+
+while getopts "$OPTSTR" opt; do
+  case "$opt" in
+    g)
+        GRAPH=true
+        ;;
+    *)
+        usage
+        ;;
+    esac
+done
+
+if [[ $GRAPH == true ]]; then
+  wingraph
+else
+  showdistrib
+fi
