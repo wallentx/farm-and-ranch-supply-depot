@@ -1,14 +1,17 @@
 #!/usr/bin/env bash
 
+
 PLOTNAME="$(basename "$WENDY_INODE")"
-PLOTSIZE="$(stat --printf='%s' "$WENDY_INODE")"
 TARGET="$(find /mnt/plots*/solo/ -type f -name '*.plot' -print -quit)"
-TARGET_NAME="$(basename "$TARGET")"
-TARGET_SIZE="$(stat --printf='%s' "$TARGET")"
 TARGET_PATH="$(dirname "$TARGET")"
 MOUNT_PATH="$(dirname "$TARGET_PATH")"
 
-echo "Identified removal of $TARGET"
+# I may use these if I need to do more complex things later
+# PLOTSIZE="$(stat --printf='%s' "$WENDY_INODE")"
+# TARGET_NAME="$(basename "$TARGET")"
+# TARGET_SIZE="$(stat --printf='%s' "$TARGET")"
+
+echo "Identified $TARGET for removal"
 rm "$TARGET"
 
 echo "Moving $WENDY_INODE to $MOUNT_PATH/pool/..."
