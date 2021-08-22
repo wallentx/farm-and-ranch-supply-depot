@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+
+PLOTNAME="$(basename "$WENDY_INODE")"
+PLOTSIZE="$(stat --printf='%s' "$WENDY_INODE")"
+TARGET="$(find /mnt/plots*/solo/ -type f -name '*.plot' -print -quit)"
+TARGET_NAME="$(basename "$TARGET")"
+TARGET_SIZE="$(stat --printf='%s' "$TARGET")"
+TARGET_PATH="$(dirname "$TARGET")"
+MOUNT_PATH="$(dirname "$TARGET_PATH")"
+
+echo "Identified removal of $TARGET"
+rm "$TARGET"
+
+echo "Moving $WENDY_INODE to $MOUNT_PATH/pool/..."
+mv "$WENDY_INODE" "$MOUNT_PATH"/pool/
+
+echo "$PLOTNAME has been moved to $MOUNT_PATH/pool/, and is ready for farming!"
