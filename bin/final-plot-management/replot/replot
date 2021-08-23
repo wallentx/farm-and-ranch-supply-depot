@@ -38,12 +38,16 @@ if [[ -z $WENDY_INODE ]]; then
 fi
 
 # FindMounts
-MOUNT_LIST=$(mktemp /tmp/mountsXXXXXXXX)
+MOUNT_LIST="/tmp/$(basename "$0")-mounts.$$.list"
 "$CHIA_PATH"/venv/bin/chia plots show | grep solo | sort -R >"$MOUNT_LIST"
 
 # FindBusy
-BUSY_LIST=$(mktemp /tmp/busyXXXXXXXX)
-pgrep -fa "^mv $WATCH_PATH/plot-*" | sed -e 's/^.* //;s/.$//' >"$BUSY_LIST"
+BUSY_LIST="/tmp/$(basename "$0")-busy.$$.list"
+if command -v amv >/dev/null 2>&1; then
+	pgrep -fa "^amv -g $WATCH_PATH/plot-*" | sed -e 's/^.* //;s/.$//' >"$BUSY_LIST"
+else
+	pgrep -fa "^mv $WATCH_PATH/plot-*" | sed -e 's/^.* //;s/.$//' >"$BUSY_LIST"
+fi
 
 # RemoveBusy
 if [[ -s "$BUSY_LIST" ]]; then
