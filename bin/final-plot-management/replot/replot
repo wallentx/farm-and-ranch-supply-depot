@@ -1,20 +1,89 @@
 #!/usr/bin/env bash
 
 
-PLOTNAME="$(basename "$WENDY_INODE")"
-TARGET="$(find /mnt/plots*/solo/ -type f -name '*.plot' -print -quit)"
-TARGET_PATH="$(dirname "$TARGET")"
-MOUNT_PATH="$(dirname "$TARGET_PATH")"
+CHIA_PATH=
+# Example: CHIA_PATH=$HOME/chia-blockchain
+if [[ -z $CHIA_PATH ]]; then
+    echo "ERROR: CHIA_PATH is unset."
+    echo "Edit $0, and set the value of line #4 to the path of your chia-blockchain repo."
+    exit 1
+fi
 
-# I may use these if I need to do more complex things later
-# PLOTSIZE="$(stat --printf='%s' "$WENDY_INODE")"
-# TARGET_NAME="$(basename "$TARGET")"
-# TARGET_SIZE="$(stat --printf='%s' "$TARGET")"
+# This is configured to work with the particular setup of my system.
+# For this to work for you, please read through this and make adjustments as needed.
+# For my system, this works assuming the mountpoint for your drives are structred as:
+#
+#   mnt
+#   ├── plots
+#   │   ├── pool
+#   │   │   └── plot-<NFT_PLOT>.plot
+#   │   └── solo
+#   │       └── plot-<OG_PLOT>.plot
+#   └── plots2
+#       ├── pool
+#       │   └── plot-<NFT_PLOT>.plot
+#       └── solo
+#           └── plot-<OG_PLOT>.plot
+#
 
-echo "Identified $TARGET for removal"
-rm "$TARGET"
+# Check for interactive execution
+if [[ -z $WENDY_INODE ]]; then
+    if [[ -z $1 ]]; then
+        echo "To run this manually, execute as:"
+        echo "replot <NFT_PLOT>"
+        exit 1
+    else
+        WENDY_INODE=$(realpath "$1")
+    fi
+fi
 
-echo "Moving $WENDY_INODE to $MOUNT_PATH/pool/..."
-mv "$WENDY_INODE" "$MOUNT_PATH"/pool/
+# FindMounts
+MOUNT_LIST=$(mktemp /tmp/mountsXXXXXXXX)
+"$CHIA_PATH"/venv/bin/chia plots show | grep solo | sort -R >"$MOUNT_LIST"
 
-echo "$PLOTNAME has been moved to $MOUNT_PATH/pool/, and is ready for farming!"
+# FindBusy
+BUSY_LIST=$(mktemp /tmp/busyXXXXXXXX)
+pgrep -fa "^mv $WATCH_PATH/plot-*" | sed -e 's/^.* //;s/.$//' >"$BUSY_LIST"
+
+# RemoveBusy
+if [[ -s "$BUSY_LIST" ]]; then
+    while read -r BUSY; do
+        ESC_BUSY="$(printf '%s\n' "$BUSY" | sed -e 's/[\/&]/\\&/g')"
+        sed -i "/^$ESC_BUSY\b/Id" "$MOUNT_LIST"
+    done <"$BUSY_LIST"
+fi
+
+# CheckMounts
+n=0
+until [ "$n" -ge 5 ]; do
+    [ -s "$MOUNT_LIST" ] && break
+    n=$((n + 1))
+    echo "No available mounts. Checking again in 5 minutes..."
+    sleep 5m
+done
+if [[ $n -eq 5 ]]; then
+    echo "Could not find an available mount. Giving up"
+    exit 1
+fi
+
+# IterateMounts
+while read -r PLOT_DIR; do
+    PLOTNAME="$(basename "$WENDY_INODE")"
+    OG_TARGET="$(find "$PLOT_DIR"/ -type f -name '*.plot' -print -quit)"
+    MOUNT_PATH="$(dirname "$PLOT_DIR")"
+
+    echo "Evaluating $PLOT_DIR..."
+    if [[ -n $OG_TARGET ]]; then
+        echo "Identified $OG_TARGET for removal"
+        rm "$OG_TARGET"
+        echo "Moving $WENDY_INODE to $MOUNT_PATH/pool/..."
+        mv "$WENDY_INODE" "$MOUNT_PATH"/pool/
+        echo "$PLOTNAME has been moved to $MOUNT_PATH/pool/, and is ready for farming!"
+        break
+    else
+        echo "No OG plot found in $PLOT_DIR"
+    fi
+done <"$MOUNT_LIST"
+
+rm "$MOUNT_LIST"
+rm "$BUSY_LIST"

@@ -3,4 +3,8 @@
 WATCH_PATH=$1
 
 # Get wendy - https://github.com/z3bra/wendy
-wendy -v -m 128 -w $WATCH_PATH bash -c 'echo "Plot complete! Searching for OG plot to replace with $(basename $WENDY_INODE) . . ." && replot' | systemd-cat -t replotd &
+wendy -v \
+	-m 128 \
+	-w "$WATCH_PATH" \
+	bash -c 'echo "New plot detected! Searching for OG plot to replace with $(basename $WENDY_INODE) . . ." && WATCH_PATH=$WATCH_PATH replot' \
+	| systemd-cat -t replotd &
