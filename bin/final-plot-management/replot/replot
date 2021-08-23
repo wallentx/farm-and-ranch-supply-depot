@@ -4,7 +4,8 @@
 CHIA_PATH=
 # Example: CHIA_PATH=$HOME/chia-blockchain
 if [[ -z $CHIA_PATH ]]; then
-    echo "CHIA_PATH is unset. Edit $0, and set the value of line #4 to the path of your chia-blockchain repo."
+    echo "ERROR: CHIA_PATH is unset."
+    echo "Edit $0, and set the value of line #4 to the path of your chia-blockchain repo."
     exit 1
 fi
 
