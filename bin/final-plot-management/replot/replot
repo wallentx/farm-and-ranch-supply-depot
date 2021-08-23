@@ -72,12 +72,18 @@ while read -r PLOT_DIR; do
     OG_TARGET="$(find "$PLOT_DIR"/ -type f -name '*.plot' -print -quit)"
     MOUNT_PATH="$(dirname "$PLOT_DIR")"
 
-    echo "Evaluating $PLOT_DIR..."
+    echo "Evaluating $PLOT_DIR/..."
     if [[ -n $OG_TARGET ]]; then
-        echo "Identified $OG_TARGET for removal"
+        echo "Identified $OG_TARGET/ for removal"
         rm "$OG_TARGET"
+        echo "Removed $OG_TARGET"
+
         echo "Moving $WENDY_INODE to $MOUNT_PATH/pool/..."
-        mv "$WENDY_INODE" "$MOUNT_PATH"/pool/
+        if command -v amv >/dev/null 2>&1; then
+            amv -g "$WENDY_INODE" "$MOUNT_PATH"/pool/
+        else
+            mv "$WENDY_INODE" "$MOUNT_PATH"/pool/
+        fi
         echo "$PLOTNAME has been moved to $MOUNT_PATH/pool/, and is ready for farming!"
         break
     else
