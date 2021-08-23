@@ -7,7 +7,11 @@ Replot consists of 2 components:
 * replot - the executor
 
 ## Usage
-Copy both of these scripts within your PATH, and execute `replotd <path_where_your_final_plot_is_written>` to start the watcher.
+Edit https://github.com/wallentx/farm-and-ranch-supply-depot/blob/main/bin/final-plot-management/replot/replot#L4 and set the path to your `chia-blockchain` repo. This is only to retrieve the output of `chia plots show`.
+Copy both of these scripts within your PATH.
+
+### Automatic execution
+Execute `replotd <path_where_your_final_plot_is_written>` to start the watcher.
 
 For example, my madmax plot creation command is:
 ```
@@ -26,3 +30,10 @@ chia_plot \
 This writes my final plot to `$TEMP1`. This is also where I need to tell `replotd` to watch.
 
 Upon detection of the final plot, `replotd` will execute `replot`.
+
+You can view the output of this by running `journalctl -t replotd`.
+
+### Manual Execution
+You can also manually trigger the replacement of an OG plot by executing `replot <path_to_new_plot_file>`.
+
+![replot](/replot.png)
