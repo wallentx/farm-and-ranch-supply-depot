@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 
-CHIA_PATH=
+CHIA_PATH=$HOME/chia-blockchain
 # Example: CHIA_PATH=$HOME/chia-blockchain
 if [[ -z $CHIA_PATH ]]; then
     echo "ERROR: CHIA_PATH is unset."
@@ -44,7 +44,7 @@ MOUNT_LIST="/tmp/$(basename "$0")-mounts.$$.list"
 # FindBusy
 BUSY_LIST="/tmp/$(basename "$0")-busy.$$.list"
 if command -v amv >/dev/null 2>&1; then
-	pgrep -fa "^amv -g $WATCH_PATH/plot-*" | sed -e 's/^.* //;s/.$//' >"$BUSY_LIST"
+	pgrep -fa "^amv -v $WATCH_PATH/plot-*" | sed -e 's/^.* //;s/.$//' >"$BUSY_LIST"
 else
 	pgrep -fa "^mv $WATCH_PATH/plot-*" | sed -e 's/^.* //;s/.$//' >"$BUSY_LIST"
 fi
@@ -84,7 +84,7 @@ while read -r PLOT_DIR; do
 
         echo "Moving $WENDY_INODE to $MOUNT_PATH/pool/..."
         if command -v amv >/dev/null 2>&1; then
-            amv -g "$WENDY_INODE" "$MOUNT_PATH"/pool/
+            amv -v "$WENDY_INODE" "$MOUNT_PATH"/pool/
         else
             mv "$WENDY_INODE" "$MOUNT_PATH"/pool/
         fi
