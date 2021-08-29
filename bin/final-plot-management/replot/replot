@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 
-CHIA_PATH=$HOME/chia-blockchain
+CHIA_PATH=
 # Example: CHIA_PATH=$HOME/chia-blockchain
 if [[ -z $CHIA_PATH ]]; then
     echo "ERROR: CHIA_PATH is unset."
@@ -43,11 +43,7 @@ MOUNT_LIST="/tmp/$(basename "$0")-mounts.$$.list"
 
 # FindBusy
 BUSY_LIST="/tmp/$(basename "$0")-busy.$$.list"
-if command -v amv >/dev/null 2>&1; then
-	pgrep -fa "^amv -v $WATCH_PATH/plot-*" | sed -e 's/^.* //;s/.$//' >"$BUSY_LIST"
-else
-	pgrep -fa "^mv $WATCH_PATH/plot-*" | sed -e 's/^.* //;s/.$//' >"$BUSY_LIST"
-fi
+pgrep -fa "^mv $WATCH_PATH/plot-*" | sed -e 's/^.* //;s/.$//' >"$BUSY_LIST"
 
 # RemoveBusy
 if [[ -s "$BUSY_LIST" ]]; then
@@ -73,6 +69,7 @@ fi
 # IterateMounts
 while read -r PLOT_DIR; do
     PLOTNAME="$(basename "$WENDY_INODE")"
+    PLOTXFER="$PLOTNAME"-TMP
     OG_TARGET="$(find "$PLOT_DIR"/ -type f -name '*.plot' -print -quit)"
     MOUNT_PATH="$(dirname "$PLOT_DIR")"
 
@@ -83,11 +80,8 @@ while read -r PLOT_DIR; do
         echo "Removed $OG_TARGET"
 
         echo "Moving $WENDY_INODE to $MOUNT_PATH/pool/..."
-        if command -v amv >/dev/null 2>&1; then
-            amv -v "$WENDY_INODE" "$MOUNT_PATH"/pool/
-        else
-            mv "$WENDY_INODE" "$MOUNT_PATH"/pool/
-        fi
+        mv "$WENDY_INODE" "$MOUNT_PATH"/pool/"$PLOTXFER"
+        mv "$MOUNT_PATH"/pool/"$PLOTXFER" "$MOUNT_PATH"/pool/"$PLOTNAME"
         echo "$PLOTNAME has been moved to $MOUNT_PATH/pool/, and is ready for farming!"
         break
     else
