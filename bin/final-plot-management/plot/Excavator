@@ -40,7 +40,7 @@ while read -r TARGET; do
 	echo "Evaluating mount..."
 	if [[ $PLOTCOUNT -gt 0 ]]; then
 		echo "Moving $WENDY_INODE to $TARGET/pool/..."
-		mv "$WENDY_INODE" "$TARGET"/pool/ & pv -d "$!"
+		rsync -a --progress --remove-source-files "$WENDY_INODE" "$TARGET"/pool/
 			if [[ -f "$TARGET"/pool/"$PLOTNAME" ]]; then
 				echo "$PLOTNAME has been moved to $TARGET/pool/, and is ready for farming!"
 			fi
