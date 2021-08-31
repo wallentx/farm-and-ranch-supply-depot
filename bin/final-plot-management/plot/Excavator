@@ -1,14 +1,22 @@
 #!/usr/bin/env bash
 
-## Description: Excavator - This script is not to be ran directly, and is called by 'Foreman'. This script analyzes volumes mounted at /mnt/plots*, and determines the best drive to move the plot to from the -d buffer drive.
+## Description: Excavator - This script is not to be ran directly, and is called by 'Foreman'. This script analyzes the chia plot directories, and determines the best drive to move the plot to from the -d buffer drive.
+
+CHIA_PATH=$HOME/chia-blockchain
+# Example: CHIA_PATH=$HOME/chia-blockchain
+if [[ -z $CHIA_PATH ]]; then
+    echo "ERROR: CHIA_PATH is unset."
+    echo "Edit $0, and set the value of line #4 to the path of your chia-blockchain repo."
+    exit 1
+fi
 
 # FindMounts
 MOUNT_LIST="/tmp/$(basename "$0")-mounts.$$.list"
-find /mnt -type d -name 'plots*' | sort -R > "$MOUNT_LIST"
+"$CHIA_PATH"/venv/bin/chia plots show | grep solo | sort -R >"$MOUNT_LIST"
 
 # FindBusy
 BUSY_LIST="/tmp/$(basename "$0")-busy.$$.list"
-pgrep -fa "^pgrep -fa "^rsync -a --progress --remove-source-files $WATCH_TARGET/plot-*" | sed -e 's/^.* //;s/.$//' | uniq > "$BUSY_LIST"
+pgrep -fa "^rsync -a --progress --remove-source-files $WATCH_TARGET/plot-*" | sed -e 's/^.* //;s/.$//' | uniq > "$BUSY_LIST"
 
 # RemoveBusy
 if [[ -s "$BUSY_LIST" ]]; then
