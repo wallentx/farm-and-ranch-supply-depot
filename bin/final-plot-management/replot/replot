@@ -43,7 +43,7 @@ MOUNT_LIST="/tmp/$(basename "$0")-mounts.$$.list"
 
 # FindBusy
 BUSY_LIST="/tmp/$(basename "$0")-busy.$$.list"
-pgrep -fa "^mv $WATCH_PATH/plot-*" | sed -e 's/^.* //;s/.$//' >"$BUSY_LIST"
+pgrep -fa "^rsync -a --progress --remove-source-files $WATCH_PATH/plot-*" | sed -e 's/^.* //;s/.$//' | uniq >"$BUSY_LIST"
 
 # RemoveBusy
 if [[ -s "$BUSY_LIST" ]]; then

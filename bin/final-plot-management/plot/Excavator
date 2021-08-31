@@ -8,7 +8,7 @@ find /mnt -type d -name 'plots*' | sort -R > "$MOUNT_LIST"
 
 # FindBusy
 BUSY_LIST="/tmp/$(basename "$0")-busy.$$.list"
-pgrep -fa "^mv $WATCH_TARGET/plot-*" | sed -e 's/^.* //;s/.$//' > "$BUSY_LIST"
+pgrep -fa "^pgrep -fa "^rsync -a --progress --remove-source-files $WATCH_TARGET/plot-*" | sed -e 's/^.* //;s/.$//' | uniq > "$BUSY_LIST"
 
 # RemoveBusy
 if [[ -s "$BUSY_LIST" ]]; then
