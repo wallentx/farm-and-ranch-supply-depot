@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+
+# Get hyperfine: https://github.com/sharkdp/hyperfine
+if ! command -v hyperfine &> /dev/null; then
+    echo "ERROR: Hyperfine not found"
+    echo "Get it: https://github.com/sharkdp/hyperfine"
+    exit
+fi
+
+hyperfine \
+  --export-markdown ~/Documents/xhyper.md \
+  -r 2 \
+  -P threads 6 88 \
+  -D 2 \
+  'export SCK=$(cat ~/.ssh/sck) && export FPK=$(cat ~/.ssh/fpk) && ~/bin/chia_plot -c "$SCK" -f "$FPK" -n 1 -r {threads} -K 2 -u 512 -v 512 -t /mnt/ssdarray1/ -2 /mnt/ram/ -d /mnt/ssdarray1/' \
+  --show-output | \
+  systemd-cat -t xhyper &
