@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+# You need to edit this to work for your specific plotting details
+
 # Get hyperfine: https://github.com/sharkdp/hyperfine
 if ! command -v hyperfine &> /dev/null; then
     echo "ERROR: Hyperfine not found"
@@ -8,10 +10,10 @@ if ! command -v hyperfine &> /dev/null; then
 fi
 
 hyperfine \
-  --export-markdown ~/Documents/xhyper.md \
+  --export-markdown ~/path/to/create/xhyper.md \
   -r 2 \
-  -P threads 6 88 \
+  -P threads 6 88 \ # edit min and max threads in range to test
   -D 2 \
-  'export SCK=$(cat ~/.ssh/sck) && export FPK=$(cat ~/.ssh/fpk) && ~/bin/chia_plot -c "$SCK" -f "$FPK" -n 1 -r {threads} -K 2 -u 512 -v 512 -t /mnt/ssdarray1/ -2 /mnt/ram/ -d /mnt/ssdarray1/' \
+  '~/bin/chia_plot -c <your-contract-key-> -f <your-farmer-key> -n 1 -r {threads} -K 2 -u 512 -v 512 -t /your/tmp/path/ -2 /your/tmp/path/ -d /your/final/path/' \
   --show-output | \
   systemd-cat -t xhyper &
