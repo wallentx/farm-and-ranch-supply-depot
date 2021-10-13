@@ -10,9 +10,37 @@ if [[ -z $CHIA_PATH ]]; then
     exit 1
 fi
 
+# This is configured to work with the particular setup of my system.
+# For this to work for you, please read through this and make adjustments as needed.
+# For my system, this works assuming the mountpoint for your drives are structred as:
+#
+#   mnt
+#   ├── plots
+#   │   ├── pool
+#   │   │   └── plot-<NFT_PLOT>.plot
+#   │   └── solo
+#   │       └── plot-<OG_PLOT>.plot
+#   └── plots2
+#       ├── pool
+#       │   └── plot-<NFT_PLOT>.plot
+#       └── solo
+#           └── plot-<OG_PLOT>.plot
+#
+
+# Check for interactive execution
+if [[ -z $WENDY_INODE ]]; then
+    if [[ -z $1 ]]; then
+        echo "To run this manually, execute as:"
+        echo "replot <NFT_PLOT>"
+        exit 1
+    else
+        WENDY_INODE=$(realpath "$1")
+    fi
+fi
+
 # FindMounts
 MOUNT_LIST="/tmp/$(basename "$0")-mounts.$$.list"
-"$CHIA_PATH"/venv/bin/chia plots show | grep solo | sort -R >"$MOUNT_LIST"
+"$CHIA_PATH"/venv/bin/chia plots show | grep pool | sort -R >"$MOUNT_LIST"
 
 # FindBusy
 BUSY_LIST="/tmp/$(basename "$0")-busy.$$.list"
