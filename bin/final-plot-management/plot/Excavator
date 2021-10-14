@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-
+#set -x
 ## Description: Excavator - This script is not to be ran directly, and is called by 'Foreman'. This script analyzes the chia plot directories, and determines the best drive to move the plot to from the -d buffer drive.
 
 # DEPENDS
@@ -53,9 +53,9 @@ MOUNT_LIST="/tmp/$(basename "$0")-mounts.$$.list"
 # FindDupes
 echo "Finding presence of existing plots..."
 PLOTNAME=$(basename $WENDY_INODE)
-PLOTDUPE=$(find /mnt/plots*/ -type f -name $PLOTNAME)
+PLOTDUPE=$(find /mnt/plots*/ -type f -name '*'$PLOTNAME'*')
 DUPEPATH=$(dirname "$PLOTDUPE")
-if $(find /mnt/plots*/pool/ -type f -name $PLOTNAME | grep -q .); then
+if $(find /mnt/plots*/pool/ -type f -name '*'$PLOTNAME'*' | grep -q .); then
 	if $(ProofOfSpace check -f $PLOTDUPE 1 &>/dev/null); then
 		echo "Plot $PLOTNAME already exists at $DUPEPATH, and is valid"
 		echo "Consider deleting $WENDY_INODE"
