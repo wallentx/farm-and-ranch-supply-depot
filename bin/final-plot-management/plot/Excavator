@@ -68,6 +68,7 @@ if $(find /mnt/plots*/pool/ -type f -name $PLOTNAME | grep -q .); then
 fi
 
 # FindBusy
+WATCH_TARGET=$(dirname "$WENDY_INODE")
 BUSY_LIST="/tmp/$(basename "$0")-busy.$$.list"
 pgrep -fa "^rsync -a --progress --remove-source-files $WATCH_TARGET/plot-*" | sed -e 's/^.* //;s/.$//' | uniq > "$BUSY_LIST"
 
