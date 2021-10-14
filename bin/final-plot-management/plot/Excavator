@@ -2,6 +2,13 @@
 
 ## Description: Excavator - This script is not to be ran directly, and is called by 'Foreman'. This script analyzes the chia plot directories, and determines the best drive to move the plot to from the -d buffer drive.
 
+# DEPENDS
+if ! command -v ProofOfSpace &> /dev/null; then
+	echo "ERROR: Missing ProofOfSpace"
+	echo "Get it - https://github.com/Chia-Network/chiapos"
+	exit 1
+fi
+
 CHIA_PATH=$HOME/chia-blockchain
 # Example: CHIA_PATH=$HOME/chia-blockchain
 if [[ -z $CHIA_PATH ]]; then
@@ -39,8 +46,26 @@ if [[ -z $WENDY_INODE ]]; then
 fi
 
 # FindMounts
+echo "Finding plot locations..."
 MOUNT_LIST="/tmp/$(basename "$0")-mounts.$$.list"
-"$CHIA_PATH"/venv/bin/chia plots show | grep pool | sort -R >"$MOUNT_LIST"
+"$CHIA_PATH"/venv/bin/chia plots show | grep 'solo\|pool' | sed 's,/*[^/]\+/*$,,' | sort -R >"$MOUNT_LIST"
+
+# FindDupes
+echo "Finding presence of existing plots..."
+PLOTNAME=$(basename $WENDY_INODE)
+PLOTDUPE=$(find /mnt/plots*/ -type f -name $PLOTNAME)
+DUPEPATH=$(dirname "$PLOTDUPE")
+if $(find /mnt/plots*/pool/ -type f -name $PLOTNAME | grep -q .); then
+	if $(ProofOfSpace check -f $PLOTDUPE 1 &>/dev/null); then
+		echo "Plot $PLOTNAME already exists at $DUPEPATH, and is valid"
+		echo "Consider deleting $WENDY_INODE"
+		exit 1
+	else
+		echo "Plot $PLOTNAME already exists at $DUPEPATH, but does not appear to be valid"
+		echo "Plot transfer may already be in progress, or incomplete plot may need to be removed"
+		exit 1
+	fi
+fi
 
 # FindBusy
 BUSY_LIST="/tmp/$(basename "$0")-busy.$$.list"
@@ -62,7 +87,7 @@ until [ "$n" -ge 3 ]; do
 	echo "No available mounts. Checking again in 5 minutes..."
 	sleep 5m
 done
-if [[ $n -eq 3 ]]; then
+if [[ $n -eq 6 ]]; then
 	echo "Could not find an available mount. Giving up"
 	exit 1
 fi
