@@ -69,10 +69,12 @@ FindDupes() {
         if "$(ProofOfSpace check -f "$PLOTDUPE" 1 &>/dev/null)"; then
             echo "Plot $PLOTNAME already exists at $DUPEPATH, and is valid"
             echo "Consider deleting $WENDY_INODE"
+            rm "$MOUNT_LIST"
             exit 1
         else
             echo "Plot $PLOTNAME already exists at $DUPEPATH, but does not appear to be valid"
             echo "Plot transfer may already be in progress, or incomplete plot may need to be removed"
+            rm "$MOUNT_LIST"
             exit 1
         fi
     fi
@@ -111,26 +113,40 @@ CheckMounts() {
     done
     if [[ $n -eq 6 ]]; then
         echo "Could not find an available mount. Giving up"
+        rm "$MOUNT_LIST"
+        rm "$BUSY_LIST"
         exit 1
     fi
 }
 
 IterateMounts() {
-    while read -r TARGET; do
-        PLOTNAME=$(basename "$WENDY_INODE")
-        PLOTSIZE=$(stat --printf='%s' "$WENDY_INODE")
-        AVAIL=$(df --output=avail --block-size=1 "$TARGET" | tail -n 1 | xargs)
-        PLOTCOUNT="$(("$AVAIL" / "$PLOTSIZE"))"
-        echo "Evaluating mount..."
-        if [[ $PLOTCOUNT -gt 0 ]]; then
-            echo "Moving $WENDY_INODE to $TARGET/pool/..."
-            rsync -a --remove-source-files "$WENDY_INODE" "$TARGET"/pool/
-            if [[ -f "$TARGET"/pool/"$PLOTNAME" ]]; then
-                echo "$PLOTNAME has been moved to $TARGET/pool/, and is ready for farming!"
+    m=0
+    until [ "$m" -ge 5 ]; do
+        while read -r TARGET; do
+            PLOTNAME=$(basename "$WENDY_INODE")
+            PLOTSIZE=$(stat --printf='%s' "$WENDY_INODE")
+            AVAIL=$(df --output=avail --block-size=1 "$TARGET" | tail -n 1 | xargs)
+            PLOTCOUNT="$(("$AVAIL" / "$PLOTSIZE"))"
+            echo "Evaluating mount..."
+            if [[ $PLOTCOUNT -gt 0 ]]; then
+                echo "Moving $WENDY_INODE to $TARGET/pool/..."
+                rsync -a --remove-source-files "$WENDY_INODE" "$TARGET"/pool/
+                if [[ -f "$TARGET"/pool/"$PLOTNAME" ]]; then
+                    echo "$PLOTNAME has been moved to $TARGET/pool/, and is ready for farming!"
+                fi
+                break
             fi
-            break
-        fi
-    done < "$MOUNT_LIST"
+        done < "$MOUNT_LIST"
+        m=$((m+1))
+        echo "No available mounts. Checking again in 5 minutes..."
+        sleep 5m
+    done
+    if [[ $n -eq 6 ]]; then
+        echo "Could not find an available mount. Giving up."
+        rm "$MOUNT_LIST"
+        rm "$BUSY_LIST"
+        exit 1
+    fi
 }
 
 CheckDeps
