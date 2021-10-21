@@ -141,7 +141,7 @@ IterateMounts() {
         echo "No available mounts. Checking again in 5 minutes..."
         sleep 5m
     done
-    if [[ $n -eq 6 ]]; then
+    if [[ $m -eq 6 ]]; then
         echo "Could not find an available mount. Giving up."
         rm "$MOUNT_LIST"
         rm "$BUSY_LIST"
