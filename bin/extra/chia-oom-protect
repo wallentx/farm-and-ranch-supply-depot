@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+
+# Displays running processes in descending order of OOM score
+ch_oomscore() {
+	printf 'PID\tOOM Score\tOOM Adj\tCommand\n'
+	while read -r pid comm; do
+		[ -f /proc/$pid/oom_score ] && \
+		[ $(cat /proc/$pid/oom_score) != 0 ] && \
+		printf '%d\t%d\t\t%d\t%s\n' "$pid" "$(cat /proc/$pid/oom_score)" "$(cat /proc/$pid/oom_score_adj)" "$comm"
+	done < <(ps -e -o pid= -o comm=) | sort -k 2nr
+}
+
+oomscore | grep -w 'chia' | awk '{print $1}' | xargs -I {} bash -c 'sudo echo "-400" > /proc/{}/oom_score_adj'
