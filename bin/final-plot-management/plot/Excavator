@@ -60,25 +60,26 @@ FindMounts() {
         sort -R >"$MOUNT_LIST"
 }
 
-FindDupes() {
-    echo "Finding presence of existing plots..."
-    PLOTNAME=$(basename "$WENDY_INODE")
-    PLOTDUPE=$(find /mnt/plots*/ -type f -name '*'$PLOTNAME'*')
-    DUPEPATH=$(dirname "$PLOTDUPE")
-    if find /mnt/plots*/ -type f -name '*'$PLOTNAME'*' | grep -q .; then
-        if "$(ProofOfSpace check -f "$PLOTDUPE" 1 &>/dev/null)"; then
-            echo "Plot $PLOTNAME already exists at $DUPEPATH, and is valid"
-            echo "Consider deleting $WENDY_INODE"
-            rm "$MOUNT_LIST"
-            exit 1
-        else
-            echo "Plot $PLOTNAME already exists at $DUPEPATH, but does not appear to be valid"
-            echo "Plot transfer may already be in progress, or incomplete plot may need to be removed"
-            rm "$MOUNT_LIST"
-            exit 1
-        fi
-    fi
-}
+#FindDupes() {
+#    echo "Finding presence of existing plots..."
+#    PLOTNAME=$(basename "$WENDY_INODE")
+#		PLOTPATH=$(dirname "$WENDY_INODE")
+#    PLOTDUPE=$(find /mnt/* -type f -name '*'$PLOTNAME'*' ! -path $PLOTPATH/'*')
+#    DUPEPATH=$(dirname "$PLOTDUPE")
+#    if find /mnt/* -type f -name '*'$PLOTNAME'*' | grep -q .; then
+#        if ${ProofOfSpace check -f $PLOTDUPE 1 &>/dev/null}; then
+#            echo "Plot $PLOTNAME already exists at $DUPEPATH, and is valid"
+#            echo "Consider deleting $WENDY_INODE"
+#            rm "$MOUNT_LIST"
+#            exit 1
+#        else
+#            echo "Plot $PLOTNAME already exists at $DUPEPATH, but does not appear to be valid"
+#            echo "Plot transfer may already be in progress, or incomplete plot may need to be removed"
+#            rm "$MOUNT_LIST"
+#            exit 1
+#        fi
+#    fi
+#}
 
 FindBusy() {
     echo "Finding busy volumes..."
@@ -154,7 +155,7 @@ CheckDeps
 CheckPath
 CheckInteractive
 FindMounts
-FindDupes
+#FindDupes
 CheckMounts
 IterateMounts
 

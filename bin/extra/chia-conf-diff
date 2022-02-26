@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+
+TMPCUR=$(mktemp /tmp/curconfXXXXXXXXXX)
+TMPNEW=$(mktemp /tmp/newconfXXXXXXXXXX)
+python -m pyaml ~/.chia/mainnet/config/config.yaml > $TMPCUR
+python -m pyaml ~/chia-blockchain-1.2.11/chia/util/initial-config.yaml > $TMPNEW
+
+delta -s --no-gitconfig $TMPCUR $TMPNEW
+
+rm $TMPCUR $TMPNEW
