@@ -41,7 +41,7 @@ EOF
 echo "$README_TOP" > README.md
 
 while read -r CRATE; do
-	for SUPPLY in "$CRATE"/*; do
+	for SUPPLY in $CRATE/*; do
 		GHFILENAME=$(basename "$SUPPLY")
 		DESCRIPTION=$(sed -n 's/^## Description: //p' "$SUPPLY")
 		echo -e "   - 📄 [${GHFILENAME//-/\\-}](/$CRATE/$GHFILENAME)" >> README.md

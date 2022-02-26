@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+
+
+CH_CFG_PATH=~/.chia/mainnet/config/config.yaml
+if [[ ! -f $CH_CFG_PATH ]]; then
+  echo "Could not find $CH_CFG_PATH"
+  exit 1
+fi
+
+if [[ "$(git rev-parse --show-toplevel 2>/dev/null)" != $(pwd -P) ]]; then
+  echo "Not in chia-blockchain project root."
+  exit 1
+fi
+
+GIT_REMOTE=$(git remote -v 2>/dev/null | head -n1 | awk '{print $2}')
+REPO=$(echo "${GIT_REMOTE}" | sed -e 's,.*:\(.*/\)\?,,' -e 's/\.git$//')
+if [[ $REPO != chia-blockchain ]]; then
+  echo "You must run this command from the chia-blockchain project root."
+  exit 1
+fi
+
+
+TMPCUR=$(mktemp /tmp/curconfXXXXXXXXXX)
+TMPNEW=$(mktemp /tmp/newconfXXXXXXXXXX)
+CH_CFG_INIT=$PWD/chia/util/initial-config.yaml
+CUR_TS=$(date "+%d%b%Y_%H-%M-%S")
+CH_CFG_BAK=$CH_CFG_PATH-$CUR_TS
+TOOL=${DIFFTOOL:-vimdiff}
+
+python -m pyaml "$CH_CFG_PATH" > "$TMPCUR"
+python -m pyaml "$CH_CFG_INIT" > "$TMPNEW"
+
+echo "You will now see a diff of view $CH_CFG_PATH and $CH_CFG_INIT."
+echo "This will open in $TOOL."
+read -rp "Press enter to continue."
+
+${DIFFTOOL:-vimdiff} "$TMPCUR" "$TMPNEW"
+read -r -p "Do you want to replace your current Chia config file with your saved changes? [y/N] " CFG_CONFIRM
+case "$CFG_CONFIRM" in
+  [yY][eE][sS]|[yY])
+    mv "$CH_CFG_PATH" "$CH_CFG_BAK"
+    cp "$TMPCUR" "$CH_CFG_PATH"
+    ;;
+  *)
+    exit 0
+    ;;
+esac
+
+rm "$TMPCUR" "$TMPNEW"
