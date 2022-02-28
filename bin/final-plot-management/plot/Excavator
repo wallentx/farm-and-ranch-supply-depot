@@ -56,7 +56,7 @@ FindMounts() {
     echo "Finding plot locations..."
     "$CHIA_PATH"/venv/bin/chia plots show | \
         grep 'solo\|pool' | \
-        sed 's,/*[^/]\+/*$,,' | \
+#        sed 's,/*[^/]\+/*$,,' | \
         sort -R >"$MOUNT_LIST"
 }
 
