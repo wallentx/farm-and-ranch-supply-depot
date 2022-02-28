@@ -126,7 +126,7 @@ IterateMounts() {
         while read -r TARGET; do
             PLOTNAME=$(basename "$WENDY_INODE")
             PLOTSIZE=$(stat --printf='%s' "$WENDY_INODE")
-            AVAIL=$(df --output=avail --block-size=1 "$TARGET" | tail -n 1 | xargs)
+            AVAIL=$(df -H --output=avail --block-size=1 "$TARGET" | tail -n 1 | xargs)
             PLOTCOUNT="$(("$AVAIL" / "$PLOTSIZE"))"
             echo "Evaluating mount..."
             if [[ $PLOTCOUNT -gt 0 ]]; then
