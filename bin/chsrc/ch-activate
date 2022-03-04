@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+set -eu
+
+# CHIA_REPO=$1
+
+# if [[ -z $CHIA_REPO ]]; then
+#   echo "Please edit $0 and set the value of CHIA_REPO"
+#   exit
+# fi
+
+# CH_BUILD="[Chia-$($CHIA_REPO/venv/bin/chia version):$CHK_NET]"
+
+# ch_psset() {
+#   sed -i 's/(venv)/'$(echo $CH_BUILD)'/g' "$CHIA_REPO"/venv/bin/activate
+# }
+
+while getopts "p:d" OPTION; do
+  case $OPTION in
+      p)
+          if [[ -f $OPTARG/venv/bin/activate ]]; then
+            CHIA_REPO=$OPTARG
+          else
+            echo "Unable to locate venv file. Did you run 'sh install.sh'?"
+            exit 1
+          fi
+          ;;
+      d)
+          sed -i 's/PS1="\(.*Chia.*-.*:.*\) /PS1="(venv) /' $CHIA_REPO/venv/bin/activate
+          exit
+          ;;
+      *)
+          echo "Invalid commandline switch"
+          exit 1
+          ;;
+  esac
+done
+
+CHK_NET=$(grep -oP 'selected_network: \K.*' ~/.chia/mainnet/config/config.yaml | uniq)
+CH_BUILD="(\\e\[0;32mChia\\e\[m-\\e\[0;35m$($CHIA_REPO/venv/bin/chia version)\\e\[m:\\e\[4;31m$CHK_NET\\e\[m)"
+
+# sed "s/(venv)/$(echo $CH_BUILD)/g" "$CHIA_REPO"/venv/bin/activate
+
+ch_psset() {
+  sed -i "s/(venv)/$(echo -e $CH_BUILD)/g" "$CHIA_REPO"/venv/bin/activate
+}
+
+if [[ -f $CHIA_REPO/venv/bin/activate ]]; then
+  ch_psset
+else
+  echo "Unable to locate venv file. Did you run 'sh install.sh'?"
+fi
+
+# # s/(venv)/\[\\e\[0;32mChia\\e\[m - \\e\[0;35m'$($CHIA_REPO/venv/bin/chia version)'\\e\[m:'$CHK_NET'\]/g
