@@ -11,7 +11,7 @@ if [[ "$(git rev-parse --show-toplevel 2>/dev/null)" != $(pwd -P) ]]; then
   echo "Not in chia-blockchain project root."
   exit 1
 fi
-python3.9 -m pip freeze | grep 'pyaml' > /dev/null 2>&1
+python -m pip freeze | grep 'pyaml' > /dev/null 2>&1
 RESULT=$?
 if [[ $RESULT -eq 1 ]]; then
 	echo "This requires the python module 'pyaml'."
