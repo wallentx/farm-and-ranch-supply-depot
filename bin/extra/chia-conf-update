@@ -11,6 +11,13 @@ if [[ "$(git rev-parse --show-toplevel 2>/dev/null)" != $(pwd -P) ]]; then
   echo "Not in chia-blockchain project root."
   exit 1
 fi
+python3.9 -m pip freeze | grep 'pyaml' > /dev/null 2>&1
+RESULT=$?
+if [[ $RESULT -eq 1 ]]; then
+	echo "This requires the python module 'pyaml'."
+  echo "Install this with 'pip install pyaml' and try again."
+  exit 1
+fi
 
 GIT_REMOTE=$(git remote -v 2>/dev/null | head -n1 | awk '{print $2}')
 REPO=$(echo "${GIT_REMOTE}" | sed -e 's,.*:\(.*/\)\?,,' -e 's/\.git$//')
@@ -30,7 +37,10 @@ TOOL=${DIFFTOOL:-vimdiff}
 python -m pyaml "$CH_CFG_PATH" > "$TMPCUR"
 python -m pyaml "$CH_CFG_INIT" > "$TMPNEW"
 
-echo "You will now see a diff of view $CH_CFG_PATH and $CH_CFG_INIT."
+echo "You will now see a diff view of:"
+echo "$CH_CFG_PATH"
+echo "and"
+echo "$CH_CFG_INIT"
 echo "This will open in $TOOL."
 read -rp "Press enter to continue."
 
