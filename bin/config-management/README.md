@@ -1,5 +1,11 @@
 ## Keep your config.yaml up to date with `almanac`
 
+
+
+https://user-images.githubusercontent.com/8990544/157250270-79909a1a-e5bd-42cf-bef4-23c771716fbf.mp4
+
+
+
 `almanac` is a script that you execute in the `chia-blockchain` procject root directory that will compare your current `config.yaml` with the reference `initial-config.yaml` file from the current HEAD of your chia-blockchain repo.
 
 This will help you keep your own `config.yaml` in phase with the expected config options that chia can utilize.
