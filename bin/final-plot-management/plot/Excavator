@@ -134,9 +134,9 @@ IterateMounts() {
                 rsync -a --remove-source-files "$WENDY_INODE" "$TARGET"/"$PLOTNAME"
                 if [[ -f "$TARGET"/"$PLOTNAME" ]]; then
                     echo "$PLOTNAME has been moved to $TARGET/, and is ready for farming!"
-                    exit
+                    exit 0
                 fi
-                break
+                break 2
             fi
         done < "$MOUNT_LIST"
         m=$((m+1))
