@@ -131,7 +131,7 @@ IterateMounts() {
             echo "Evaluating mount..."
             if [[ $PLOTCOUNT -gt 0 ]]; then
                 echo "Moving $WENDY_INODE to $TARGET/..."
-                rsync -a --remove-source-files "$WENDY_INODE" "$TARGET"/
+                rsync -a --remove-source-files "$WENDY_INODE" "$TARGET"/"$PLOTNAME"
                 if [[ -f "$TARGET"/"$PLOTNAME" ]]; then
                     echo "$PLOTNAME has been moved to $TARGET/, and is ready for farming!"
                     exit
