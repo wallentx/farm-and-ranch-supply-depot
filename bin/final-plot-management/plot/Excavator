@@ -43,7 +43,7 @@ CheckInteractive() {
     if [[ -z $WENDY_INODE ]]; then
         if [[ -z $PLOTARG ]]; then
             echo "To run this manually, execute as:"
-            echo "replot <NFT_PLOT>"
+            echo "Excavator <NFT_PLOT>"
             exit 1
         else
             WENDY_INODE=$(realpath "$PLOTARG")
