@@ -1,8 +1,19 @@
 #!/usr/bin/env bash
 
+## Description: replotd - This script runs like a daemon. Upon completion of a new plot, it analyzes the chia plot directories, locates an OG plot, deletes it, and moves the new plot in it's place. You need to pass it the path to the final directory of your newly created plots.
+
 WATCH_PATH=$1
 
-# Get wendy - https://github.com/z3bra/wendy
+CheckDeps() {
+    if ! command -v wendy &> /dev/null; then
+        echo "ERROR: Missing wendy"
+        echo "Get it - https://github.com/z3bra/wendy"
+        exit 1
+    fi
+}
+
+CheckDeps
+
 wendy -v \
 	-m 128 \
 	-w "$WATCH_PATH" \

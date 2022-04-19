@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #set -x
-## Description: Excavator - This script is not to be ran directly, and is called by 'Foreman'. This script analyzes the chia plot directories, and determines the best drive to move the plot to from the -d buffer drive.
+## Description: Excavator - This script is not to be ran directly (but it can), and is called by 'Foreman'. This script analyzes the chia plot directories, and determines the best drive to move the plot to from the -d buffer drive.
 
 CheckDeps() {
     if ! command -v ProofOfSpace &> /dev/null; then
@@ -8,14 +8,19 @@ CheckDeps() {
         echo "Get it - https://github.com/Chia-Network/chiapos"
         exit 1
     fi
+    if ! command -v yq &> /dev/null; then
+        echo "ERROR: Missing yq"
+        echo "Get it with: go install github.com/mikefarah/yq/v4@latest"
+        exit 1
+    fi
 }
 
-CHIA_PATH=$HOME/chia-blockchain
-# Example: CHIA_PATH=$HOME/chia-blockchain
+CHIA_ROOT=$HOME/chia-blockchain
+# Example: CHIA_ROOT=$HOME/chia-blockchain
 
 CheckPath() {
-    if [[ -z $CHIA_PATH ]]; then
-        echo "ERROR: CHIA_PATH is unset."
+    if [[ -z $CHIA_ROOT ]]; then
+        echo "ERROR: CHIA_ROOT is unset."
         echo "Edit $0, and set the value of line #4 to the path of your chia-blockchain repo."
         exit 1
     fi
@@ -54,7 +59,7 @@ CheckInteractive() {
 MOUNT_LIST="/tmp/$(basename "$0")-mounts.$$.list"
 FindMounts() {
     echo "Finding plot locations..."
-    "$CHIA_PATH"/venv/bin/chia plots show | \
+    "$CHIA_ROOT"/venv/bin/chia plots show | \
         grep 'solo\|pool' | \
 #        sed 's,/*[^/]\+/*$,,' | \
         sort -R >"$MOUNT_LIST"
@@ -63,7 +68,7 @@ FindMounts() {
 #FindDupes() {
 #    echo "Finding presence of existing plots..."
 #    PLOTNAME=$(basename "$WENDY_INODE")
-#		PLOTPATH=$(dirname "$WENDY_INODE")
+#       PLOTPATH=$(dirname "$WENDY_INODE")
 #    PLOTDUPE=$(find /mnt/* -type f -name '*'$PLOTNAME'*' ! -path $PLOTPATH/'*')
 #    DUPEPATH=$(dirname "$PLOTDUPE")
 #    if find /mnt/* -type f -name '*'$PLOTNAME'*' | grep -q .; then

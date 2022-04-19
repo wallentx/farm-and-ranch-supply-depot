@@ -1,13 +1,25 @@
 #!/usr/bin/env bash
 
+## Description: replot - This script is not to be ran directly (but it can), and is called by 'replotd'. This script analyzes the chia plot directories, and determines the best drive to move the plot to from the -d buffer drive.
 
-CHIA_PATH=$HOME/chia-blockchain
-# Example: CHIA_PATH=$HOME/chia-blockchain
-if [[ -z $CHIA_PATH ]]; then
-    echo "ERROR: CHIA_PATH is unset."
-    echo "Edit $0, and set the value of line #4 to the path of your chia-blockchain repo."
-    exit 1
-fi
+CheckDeps() {
+    if ! command -v yq &> /dev/null; then
+        echo "ERROR: Missing yq"
+        echo "Get it with: go install github.com/mikefarah/yq/v4@latest"
+        exit 1
+    fi
+}
+
+CHIA_ROOT=$HOME/chia-blockchain
+# Example: CHIA_ROOT=$HOME/chia-blockchain
+
+CheckPath() {
+    if [[ -z $CHIA_ROOT ]]; then
+        echo "ERROR: CHIA_ROOT is unset."
+        echo "Edit $0, and set the value of line #4 to the path of your chia-blockchain repo."
+        exit 1
+    fi
+}
 
 # This is configured to work with the particular setup of my system.
 # For this to work for you, please read through this and make adjustments as needed.
@@ -26,66 +38,96 @@ fi
 #           └── plot-<OG_PLOT>.plot
 #
 
-# Check for interactive execution
-if [[ -z $WENDY_INODE ]]; then
-    if [[ -z $1 ]]; then
-        echo "To run this manually, execute as:"
-        echo "replot <NFT_PLOT>"
-        exit 1
-    else
-        WENDY_INODE=$(realpath "$1")
+PLOTARG=$1
+CheckInteractive() {
+    if [[ -z $WENDY_INODE ]]; then
+        if [[ -z $PLOTARG ]]; then
+            echo "To run this manually, execute as:"
+            echo "replot <NFT_PLOT>"
+            exit 1
+        else
+            WENDY_INODE=$(realpath "$PLOTARG")
+        fi
     fi
-fi
+}
 
-# FindMounts
 MOUNT_LIST="/tmp/$(basename "$0")-mounts.$$.list"
-"$CHIA_PATH"/venv/bin/chia plots show | grep solo | sort -R >"$MOUNT_LIST"
+FindMounts() {
+    # If you can't, or don't want to install yq, you can swap the following block with the one below it
+    # "$CHIA_ROOT"/venv/bin/chia plots show | \
+    #     grep solo | \
+    #     sort -R >"$MOUNT_LIST"
+    yq '.harvester.plot_directories[]' \
+        ~/.chia/mainnet/config/config.yaml | \
+        grep solo | \
+        sort -R >"$MOUNT_LIST"
+}
 
-# FindBusy
-BUSY_LIST="/tmp/$(basename "$0")-busy.$$.list"
-pgrep -fa "^rsync -a --progress --remove-source-files $WATCH_PATH/plot-*" | sed -e 's/^.* //;s/.$//' | uniq >"$BUSY_LIST"
+FindBusy() {
+    echo "Finding busy volumes..."
+    BUSY_LIST="/tmp/$(basename "$0")-busy.$$.list"
+    pgrep -fa "^rsync" | \
+        grep 'plot' | \
+        grep 'pool/\|solo/' | \
+        sed -e 's/^.* //;s/.$//' | \
+        sort | \
+        uniq > "$BUSY_LIST"
+}
 
-# RemoveBusy
-if [[ -s "$BUSY_LIST" ]]; then
-    while read -r BUSY; do
-        ESC_BUSY="$(printf '%s\n' "$BUSY" | sed -e 's/[\/&]/\\&/g')"
+RemoveBusy() {
+    echo "Excluding busy volumes..."
+    if [[ -s "$BUSY_LIST" ]]; then
+        while read -r BUSY; do
+        ESC_BUSY="$(dirname $(printf '%s\n' "$BUSY") | sed -e 's/[\/&]/\\&/g')"
         sed -i "/^$ESC_BUSY\b/Id" "$MOUNT_LIST"
-    done <"$BUSY_LIST"
-fi
-
-# CheckMounts
-n=0
-until [ "$n" -ge 5 ]; do
-    [ -s "$MOUNT_LIST" ] && break
-    n=$((n + 1))
-    echo "No available mounts. Checking again in 5 minutes..."
-    sleep 5m
-done
-if [[ $n -eq 5 ]]; then
-    echo "Could not find an available mount. Giving up"
-    exit 1
-fi
-
-# IterateMounts
-while read -r PLOT_DIR; do
-    PLOTNAME="$(basename "$WENDY_INODE")"
-    OG_TARGET="$(find "$PLOT_DIR"/ -type f -name '*.plot' -print -quit)"
-    MOUNT_PATH="$(dirname "$PLOT_DIR")"
-
-    echo "Evaluating $PLOT_DIR/..."
-    if [[ -n $OG_TARGET ]]; then
-        echo "Identified $OG_TARGET/ for removal"
-        rm "$OG_TARGET"
-        echo "Removed $OG_TARGET"
-
-        echo "Moving $WENDY_INODE to $MOUNT_PATH/pool/..."
-        rsync -a --progress --remove-source-files "$WENDY_INODE" "$MOUNT_PATH"/pool/
-        echo "$PLOTNAME has been moved to $MOUNT_PATH/pool/, and is ready for farming!"
-        break
-    else
-        echo "No OG plot found in $PLOT_DIR"
+        done <"$BUSY_LIST"
     fi
-done <"$MOUNT_LIST"
+}
+
+CheckMounts() {
+    n=0
+    until [ "$n" -ge 5 ]; do
+        FindBusy
+        RemoveBusy
+        [ -s "$MOUNT_LIST" ] && break
+        n=$((n+1))
+        echo "No available mounts. Checking again in 5 minutes..."
+        sleep 5m
+    done
+    if [[ $n -eq 6 ]]; then
+        echo "Could not find an available mount. Giving up"
+        rm "$MOUNT_LIST"
+        rm "$BUSY_LIST"
+        exit 1
+    fi
+}
+
+IterateMounts() {
+    while read -r PLOT_DIR; do
+        PLOTNAME="$(basename "$WENDY_INODE")"
+        OG_TARGET="$(find "$PLOT_DIR"/ -type f -name '*.plot' -print -quit)"
+        MOUNT_PATH="$(dirname "$PLOT_DIR")"
+        echo "Evaluating $PLOT_DIR/..."
+        if [[ -n $OG_TARGET ]]; then
+            echo "Identified $OG_TARGET/ for removal"
+            rm "$OG_TARGET"
+            echo "Removed $OG_TARGET"
+            echo "Moving $WENDY_INODE to $MOUNT_PATH/pool/..."
+            rsync -a --progress --remove-source-files "$WENDY_INODE" "$MOUNT_PATH"/pool/
+            echo "$PLOTNAME has been moved to $MOUNT_PATH/pool/, and is ready for farming!"
+            break
+        else
+            echo "No OG plot found in $PLOT_DIR"
+        fi
+    done <"$MOUNT_LIST"
+}
+
+CheckDeps
+CheckPath
+CheckInteractive
+FindMounts
+CheckMounts
+IterateMounts
 
 rm "$MOUNT_LIST"
 rm "$BUSY_LIST"
