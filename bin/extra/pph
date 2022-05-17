@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-HOURS=$1
+HOURS=${1:-24}
 
 echo "Calculating Proofs Per Hour for the past $HOURS hours..."
 
