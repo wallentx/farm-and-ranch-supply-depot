@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+
+HOURS=$1
+
+echo "Calculating Proofs Per Hour for the past $HOURS hours..."
+
+{ printf '%s\t%s\n' "Hour" "Proofs Found"; for H in $(seq 1 $HOURS | xargs -I {} date -d '{} hour ago' "+%FT%H"); do paste <(echo $H) <(stdbuf -o0 rg 'Found [1-9] proofs' <(rg $H ~/.chia/mainnet/log/*.log*) | wc -l); done | tac; } | ptable 2 blue
