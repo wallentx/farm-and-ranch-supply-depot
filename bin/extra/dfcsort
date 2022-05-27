@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+
+# Deps
+# dfc https://github.com/rolinh/dfc
+
+usage() {
+	cat << EOF
+dfcsort: Report file system space usage in a fancy way when you have a fuck ton of drives. It's for Chia. And only if your mountpoints are named /mnt/{plots-plots155}.
+
+Usage: dfcsort [-s]
+		-s	Sort devices sequentially by their mountpoint
+
+EOF
+	exit 1
+}
+
+function dfcsort() {
+	echo ""
+	dfc -p /dev -q name -Tflms -c always | \
+		sort -n -k 7.12 | \
+		sed '2{2h;1H;d};$G' | \
+		sed -n '2{h;n;G};p' | \
+		sed -n '3{h;n;G};p'
+	echo ""
+}
+
+function seqcheck() {
+	awk '{for(i=p+1; i<$1; i++) print i} {p=$1}'
+}
+
+
+OPTSTR='s'
+
+while getopts "$OPTSTR" opt; do
+  case "$opt" in
+    s)
+        SEQCHECK=true
+        ;;
+    *)
+        usage
+        ;;
+    esac
+done
+
+if [[ $SEQCHECK == true ]]; then
+	echo "mountpoints missing from sequence:"
+  dfcsort | awk '{print $7}' | cut -d / -f3 | grep plots |cut -c 6- | seqcheck
+else
+  dfcsort
+fi
