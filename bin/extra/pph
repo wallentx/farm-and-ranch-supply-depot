@@ -1,7 +1,54 @@
 #!/usr/bin/env bash
+set -e
+
+## Description: shows proofs found per hour, over the past 'n' hours
 
 HOURS=${1:-24}
+TMPOUT=$(mktemp /tmp/tmpXXXXXXXXXX)
 
-echo "Calculating Proofs Per Hour for the past $HOURS hours..."
+function shutdown() {
+  tput cnorm
+	rm $TMPOUT
+}
+trap shutdown EXIT
 
-{ printf '%s\t%s\n' "Hour" "Proofs Found"; for H in $(seq 1 $HOURS | xargs -I {} date -d '{} hour ago' "+%FT%H"); do paste <(echo $H) <(stdbuf -o0 rg 'Found [1-9] proofs' <(rg $H ~/.chia/mainnet/log/*.log*) | wc -l); done | tac; } | ptable 2 blue
+function cursorBack() {
+  echo -en "\033[$1D"
+}
+
+function spinner() {
+	local LC_CTYPE=C
+	tput civis
+	local CL="\e[2K"
+	local spin="⣷⣯⣟⡿⢿⣻⣽⣾"
+	local pid=$(jobs -p)
+	local charwidth=1
+  while kill -0 $pid 2>/dev/null; do
+    local i=$(((i + $charwidth) % ${#spin}))
+    printf "%s" "$(tput setaf 2)${spin:$i:$charwidth}$(tput sgr0)"
+    cursorBack 1
+    sleep .1
+  done
+	tput cnorm
+	wait $(jobs -p)
+}
+
+echo "Calculating Proofs Per Hour"
+echo -n "for the past $HOURS hours... "
+
+function findProofs() {
+		for H in $(seq 1 $HOURS | xargs -I {} date -d '{} hour ago' "+%FT%H") ; do
+			PROOFS=$(echo "$(rg 'Found [1-9] proofs' <( rg $H ~/.chia/mainnet/log/*.log*) | wc -l)")
+			paste <(echo $H) <(printf "%6s\n" "$PROOFS")
+		done | tac
+}
+
+function printProofs() {
+	findProofs > $TMPOUT & spinner
+	{
+		printf '\n\n%9s\t%8s\n' "Hour" "Proofs";
+		cat $TMPOUT;
+	}
+}
+
+printProofs
