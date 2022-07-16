@@ -1,5 +1,21 @@
 #!/usr/bin/env bash
 
+while getopts "d:" OPTION; do
+  case $OPTION in
+      d)
+          DIFFTOOL=${OPTARG}
+          ;;
+      *)
+          echo "Unknow comandline switch: $OPTION"
+          exit 1
+  esac
+done
+
+if ! command -v yq &> /dev/null; then
+  echo "Could not find 'yq'."
+  echo "Please visit https://github.com/mikefarah/yq/#install"
+  exit 1
+fi
 
 CH_CFG_PATH=~/.chia/mainnet/config/config.yaml
 if [[ ! -f $CH_CFG_PATH ]]; then
@@ -29,31 +45,75 @@ fi
 
 TMPCUR=$(mktemp /tmp/curconfXXXXXXXXXX)
 TMPNEW=$(mktemp /tmp/newconfXXXXXXXXXX)
+#TMPPOOL=$(mktemp /tmp/poollistXXXXXXXXXX)
+TMPNOPOOL=$(mktemp /tmp/nopoolXXXXXXXXXX)
 CH_CFG_INIT=$PWD/chia/util/initial-config.yaml
 CUR_TS=$(date "+%d%b%Y_%H-%M-%S")
 CH_CFG_BAK=$CH_CFG_PATH-$CUR_TS
 TOOL=${DIFFTOOL:-vimdiff}
 
-python -m pyaml "$CH_CFG_PATH" > "$TMPCUR"
+##yq '.pool.pool_list |=load("/tmp/tplist.yml")' ~/.chia/mainnet/config/config.yaml
+##yq '.pool.pool_list' /tmp/config.yaml -s '"/tmp/tplist"'
+##yq --front-matter=process '.pool.pool_list=[]' ~/.chia/mainnet/config/config.yaml
+
+yq --front-matter=process '.pool.pool_list=[]' "$CH_CFG_PATH" > "$TMPNOPOOL"
+yq '.pool.pool_list' "$CH_CFG_PATH" -s '"/tmp/tmppool"'
+#yq '.pool.pool_list |=load("$TMPPOOL" + .)' "$TMPNOPOOL"
+
+python -m pyaml "$TMPNOPOOL" > "$TMPCUR"
 python -m pyaml "$CH_CFG_INIT" > "$TMPNEW"
+
+VIMDIFF_CONTROLS=$(cat <<- EOF
+
+
+                 VIMDIFF CONTROLS
+
+
+
+]c               - advance to the next block with differences
+[c               - reverse search for the previous block with differences
+do (diff obtain) - bring changes from the other file to the current file
+dp (diff put)    - send changes from the current file to the other file
+zo               - unfold/unhide text
+zc               - refold/rehide text
+zr               - unfold both files completely
+zm               - fold both files completely
+
+NOTE ABOUT DIFF OBTAIN/PUT CONTROL:
+- Normal Mode: Use "do" and "dp" controls when your cursor is on, or just one line under a block.
+- Visual Mode:  Use ":'<,'>diffget" and ":'<,'>diffput" when selecting lines of text.
+See also ":h copy-diffs".
+
+":diffupdate" will re-scan the files for changes.
+
+When you are finished editing, press "escape", and enter ":wqa" and press "enter".
+
+EOF
+)
 
 echo "You will now see a diff view of:"
 echo "$CH_CFG_PATH"
 echo "and"
 echo "$CH_CFG_INIT"
 echo "This will open in $TOOL."
+if [[ $TOOL == "vimdiff" ]]; then
+  echo "$VIMDIFF_CONTROLS"
+  echo ""
+fi
 read -rp "Press enter to continue."
 
-${DIFFTOOL:-vimdiff} "$TMPCUR" "$TMPNEW"
+$TOOL "$TMPCUR" "$TMPNEW"
+
 read -r -p "Do you want to replace your current Chia config file with your saved changes? [y/N] " CFG_CONFIRM
 case "$CFG_CONFIRM" in
   [yY][eE][sS]|[yY])
     mv "$CH_CFG_PATH" "$CH_CFG_BAK"
-    cp "$TMPCUR" "$CH_CFG_PATH"
+    #cp "$TMPCUR" "$CH_CFG_PATH"
+    yq '.pool.pool_list |=load("/tmp/tmppool.yml")' "$TMPCUR" > "$CH_CFG_PATH"
     ;;
   *)
     exit 0
     ;;
 esac
 
-rm "$TMPCUR" "$TMPNEW"
+rm "$TMPCUR" "$TMPNEW" "$TNPPOOL" /tmp/tmppool.yml
