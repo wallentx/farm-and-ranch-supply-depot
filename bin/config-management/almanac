@@ -45,20 +45,14 @@ fi
 
 TMPCUR=$(mktemp /tmp/curconfXXXXXXXXXX)
 TMPNEW=$(mktemp /tmp/newconfXXXXXXXXXX)
-#TMPPOOL=$(mktemp /tmp/poollistXXXXXXXXXX)
 TMPNOPOOL=$(mktemp /tmp/nopoolXXXXXXXXXX)
 CH_CFG_INIT=$PWD/chia/util/initial-config.yaml
 CUR_TS=$(date "+%d%b%Y_%H-%M-%S")
 CH_CFG_BAK=$CH_CFG_PATH-$CUR_TS
 TOOL=${DIFFTOOL:-vimdiff}
 
-##yq '.pool.pool_list |=load("/tmp/tplist.yml")' ~/.chia/mainnet/config/config.yaml
-##yq '.pool.pool_list' /tmp/config.yaml -s '"/tmp/tplist"'
-##yq --front-matter=process '.pool.pool_list=[]' ~/.chia/mainnet/config/config.yaml
-
 yq --front-matter=process '.pool.pool_list=[]' "$CH_CFG_PATH" > "$TMPNOPOOL"
 yq '.pool.pool_list' "$CH_CFG_PATH" -s '"/tmp/tmppool"'
-#yq '.pool.pool_list |=load("$TMPPOOL" + .)' "$TMPNOPOOL"
 
 python -m pyaml "$TMPNOPOOL" > "$TMPCUR"
 python -m pyaml "$CH_CFG_INIT" > "$TMPNEW"
@@ -116,4 +110,4 @@ case "$CFG_CONFIRM" in
     ;;
 esac
 
-rm "$TMPCUR" "$TMPNEW" "$TNPPOOL" /tmp/tmppool.yml
+rm "$TMPCUR" "$TMPNEW" /tmp/tmppool.yml
