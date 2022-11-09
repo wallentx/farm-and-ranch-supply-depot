@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+set -e
+
+MKT=$(curl -s https://xchscan.com/api/chia-price | jq '.usd')
+USAGE_TEXT="\
+Usage: $0 [-xm] <value>
+  -x            convert XCH to MOJO
+  -m            Convert MOJO to XCH
+"
+VAL_IN=$2
+
+usage() {
+  echo "${USAGE_TEXT}"
+}
+
+while getopts "x:m:" arg; do
+  case "$arg" in
+    x)
+        RCONVERT=$VAL_IN
+        CONVERT=$(printf "%'.f\n" $(echo "$VAL_IN * 100000000000" | bc))
+        SYMB="ᵐᵒʲᵒ"
+        ;;
+    m)
+        RCONVERT=$(echo "$VAL_IN * 0.000000000001" | bc -l)
+        CONVERT=$(printf "%'.12f\n" "$(echo "$VAL_IN * 0.000000000001" | bc -l)")
+        SYMB="ˣᶜʰ"
+        ;;
+    *)
+        usage
+        ;;
+    esac
+done
+
+VAL=$(echo -e "$RCONVERT * $MKT" | bc -l)
+
+echo "$SYMB$CONVERT"
+printf "\$%'.02f\n" "$VAL"
