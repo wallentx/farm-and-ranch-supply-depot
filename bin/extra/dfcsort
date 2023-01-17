@@ -17,7 +17,7 @@ EOF
 function dfcsort() {
 	echo ""
 	dfc -p /dev -q name -Tflms -c always | \
-		sort -n -k 7.12 | \
+		sort -n -k 7.17 | \
 		sed '2{2h;1H;d};$G' | \
 		sed -n '2{h;n;G};p' | \
 		sed -n '3{h;n;G};p'
@@ -44,7 +44,7 @@ done
 
 if [[ $SEQCHECK == true ]]; then
 	echo "mountpoints missing from sequence:"
-  dfcsort | awk '{print $7}' | cut -d / -f3 | grep plots |cut -c 6- | seqcheck
+  dfcsort | awk '{print $7}' | cut -d / -f4 | grep plots |cut -c 6- | seqcheck
 else
   dfcsort
 fi
