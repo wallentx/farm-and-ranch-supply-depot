@@ -73,6 +73,8 @@ function printProofs() {
 	findProofs > $TMPOUT & spinner
 	{
 		printf '\n\n%9s\t%8s\n' "Hour" "Proofs";
+    #printf "${CL}"
+    #echo -ne "\r"
 		cat $TMPOUT;
 	}
 }
