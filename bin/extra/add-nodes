@@ -8,6 +8,7 @@ function shutdown() {
   tput cnorm
   rm $TMPOUT
 }
+
 trap shutdown EXIT
 
 function cursorBack() {
@@ -41,10 +42,14 @@ echo "Connected to $BEFORE nodes."
 function addNodes() {
   # Clear loading bar
   echo -ne "\r"
-  DIGNODES="$(dig dns-introducer.chia.net | awk '{print $5}' | tail -n 30 | head -n+24)"
-  for n in $DIGNODES; do
-    nc -z -w1 $n 8444 && chia peer -a $n:8444 full_node &>/dev/null
-  done
+  IDUCERS=$(yq '.full_node.dns_servers[]' ~/.chia/mainnet/config/config.yaml)
+  NPORT=$(yq '.full_node.port' ~/.chia/mainnet/config/config.yaml)
+  while read DUCER; do
+    DNODES=$(dig "$DUCER" | awk '{print $5}' | tail -n 30 | head -n+24)
+    for IP in $DNODES; do
+      nc -z -w1 "$IP" $NPORT && chia peer -a $IP:$NPORT full_node &>/dev/null
+    done
+  done < "$IDUCERS"
 }
 
 function printInfo() {
