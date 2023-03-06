@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -ex
 
 ## Description: Automatically updates README.md
 
@@ -51,8 +51,9 @@ while read -r AISLE; do
   while read -r SUPPLY_BIN; do
 	  for CRATE in $SUPPLY_BIN; do
 		  GHFILENAME=$(basename "$CRATE")
+      AISLE_NUM=$(basename "$AISLE")
 		  DESCRIPTION=$(sed -n 's/^## Description: //p' "$CRATE")
-		  echo -e "      - 📄 [${GHFILENAME//-/\\-}](/$AISLE/$GHFILENAME)" >> "$PROJECT_ROOT"/README.md
+		  echo -e "      - 📄 [${GHFILENAME//-/\\-}](/$AISLE_NUM/$GHFILENAME)" >> "$PROJECT_ROOT"/README.md
 		  if [[ -n "$DESCRIPTION" ]]; then
   			echo -e "         - _${DESCRIPTION}_" >> "$PROJECT_ROOT"/README.md
 		  fi
