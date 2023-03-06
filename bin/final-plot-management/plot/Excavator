@@ -60,7 +60,8 @@ MOUNT_LIST="/tmp/$(basename "$0")-mounts.$$.list"
 FindMounts() {
     echo "Finding plot locations..."
     "$CHIA_ROOT"/venv/bin/chia plots show | \
-        grep 'solo\|pool' | \
+    grep 'mnt' | xargs -I {} bash -c 'find {} -type d -name "plots*"' | \
+#        grep 'solo\|pool' | \
 #        sed 's,/*[^/]\+/*$,,' | \
         sort -R >"$MOUNT_LIST"
 }
@@ -135,10 +136,10 @@ IterateMounts() {
             PLOTCOUNT="$((AVAIL / PLOTSIZE))"
             echo "Evaluating mount..."
             if [[ $PLOTCOUNT -gt 0 ]]; then
-                echo "Moving $WENDY_INODE to $TARGET/..."
-                rsync -a --remove-source-files "$WENDY_INODE" "$TARGET"/"$PLOTNAME"
-                if [[ -f "$TARGET"/"$PLOTNAME" ]]; then
-                    echo "$PLOTNAME has been moved to $TARGET/, and is ready for farming!"
+                echo "Moving $WENDY_INODE to $TARGET/pool/..."
+                rsync -a --remove-source-files "$WENDY_INODE" "$TARGET"/pool/"$PLOTNAME"
+                if [[ -f "$TARGET"/pool/"$PLOTNAME" ]]; then
+                    echo "$PLOTNAME has been moved to $TARGET/pool/, and is ready for farming!"
                     exit 0
                 fi
                 break 2

@@ -3,14 +3,14 @@
 ## Description: Show (or graph) eligible plot distribution per Proof Check, by occurrence.
 
 # Manually set this if you want to display plot count
-COUNT=true
-CHIAPATH="$HOME/chia-blockchain"
+COUNT=false
+CHIAPATH="$HOME/chia-blockchain-1.2.11"
 if [[ $COUNT == true ]] && [[ ! -z $CHIAPATH ]]; then
   source $CHIAPATH/activate
   PLOTCOUNT=$(chia farm summary | grep 'plots of size' | grep -o '[^$(printf '\t') ].*')
 fi
 
-LOGPATH="$HOME/.chia/mainnet/log/debug.log*"
+LOGPATH="$HOME/.chia/mainnet/log/harvester-debug.log*"
 
 if [[ ! $(ls -A $LOGPATH) ]]; then
   echo "No files found at $LOGPATH"
@@ -29,7 +29,7 @@ plottery() {
 	grep -o 'Found.*proofs' | \
 	sort | \
 	uniq -c | \
-	awk -F" " '{print "  ", $3"\t", "┃   ", $1}'
+	awk -F" " '{print "", $3"\t", "┃   ", $1}'
 
 #	grep -o 'Found.*proofs' "$LOGPATH" | \
 #	sort | \
@@ -51,7 +51,10 @@ showdistrib() {
    ━━━━╋━━━━
 EOF
 
+#sort | uniq -c | awk -F" " '{print "  ", $3"\t", "┃   ", $1}' | column -t
+
   plottery | column -t | \
+#    sort | uniq -c | awk -F" " '{print "  ", $3"\t", "┃   ", $1}' | column -t
 #    awk '{print $1}' | \
 #    tail +4 | \
 #    sort -n | \

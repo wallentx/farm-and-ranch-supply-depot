@@ -9,4 +9,4 @@ TEMP2=${4:-$TEMP1}
 SCK=$(cat ~/.ssh/sck)
 FPK=$(cat ~/.ssh/fpk)
 
-nohup chia_plot -c "$SCK" -f "$FPK" -n "$COUNT" -r "$CORES" -K 2 -u 512 -v 512 -t "$TEMP1" -2 "$TEMP2" -d "$TEMP1" | systemd-cat -t xplot &
+nohup chia_plot -c "$SCK" -f "$FPK" -n "$COUNT" -r "$CORES" -K 2 -u 512 -v 512 -t "$TEMP1" -2 "$TEMP2" -d "$TEMP1" -D true | systemd-cat -t xplot &

@@ -53,7 +53,7 @@ while read -r AISLE; do
 		  GHFILENAME=$(basename "$CRATE")
       AISLE_NUM=$(basename "$AISLE")
 		  DESCRIPTION=$(sed -n 's/^## Description: //p' "$CRATE")
-		  echo -e "      - 📄 [${GHFILENAME//-/\\-}](/$AISLE_NUM/$GHFILENAME)" >> "$PROJECT_ROOT"/README.md
+		  echo -e "      - 📄 [${GHFILENAME//-/\\-}](bin/$AISLE_NUM/$GHFILENAME)" >> "$PROJECT_ROOT"/README.md
 		  if [[ -n "$DESCRIPTION" ]]; then
   			echo -e "         - _${DESCRIPTION}_" >> "$PROJECT_ROOT"/README.md
 		  fi
