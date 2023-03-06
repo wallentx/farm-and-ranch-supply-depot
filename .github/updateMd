@@ -1,11 +1,11 @@
 #!/bin/bash
-set -ex
+set -e
 
 ## Description: Automatically updates README.md
 
 PROJECT_ROOT=$(git rev-parse --show-toplevel)
 WAREHOUSE="$PROJECT_ROOT"/bin
-AISLES=$(find "$WAREHOUSE" -type d)
+AISLES=$(find "$WAREHOUSE" -type d | grep -v 'bin$')
 #SUPPLY=$(find "$SUPPLY_BIN" -type f)
 README_TOP=$(cat <<- EOF
 ## Usage
@@ -38,22 +38,29 @@ README_BOTTOM=$(cat <<- EOF
 EOF
 )
 
-echo "$README_TOP" > README.md
+#function walkAisles() {
+#  cd "$WHAREHOUSE"/bin
+#  find . -type d
+#}
+
+echo "$README_TOP" > "$PROJECT_ROOT"/README.md
 
 #for AISLE in "$AISLES"; do
 while read -r AISLE; do
+  echo -e "   - 📂 __${AISLE}__" >> "$PROJECT_ROOT"/README.md
   while read -r SUPPLY_BIN; do
 	  for CRATE in $SUPPLY_BIN; do
 		  GHFILENAME=$(basename "$CRATE")
 		  DESCRIPTION=$(sed -n 's/^## Description: //p' "$CRATE")
-		  echo -e "   - 📄 [${GHFILENAME//-/\\-}](/$SUPPLY_BIN/$GHFILENAME)" >> README.md
+		  echo -e "      - 📄 [${GHFILENAME//-/\\-}](/$AISLE/$GHFILENAME)" >> "$PROJECT_ROOT"/README.md
 		  if [[ -n "$DESCRIPTION" ]]; then
-  			echo -e "      - _${DESCRIPTION}_" >> README.md
+  			echo -e "         - _${DESCRIPTION}_" >> "$PROJECT_ROOT"/README.md
 		  fi
 	  done
   done < <(find "$AISLE" -type f)
 done < <(echo "$AISLES")
 #done < <(find "$SUPPLY_BIN" -type f)
 
-echo "$README_BOTTOM" >> README.md
+echo "$README_BOTTOM" >> "$PROJECT_ROOT"/README.md
 
+#cd $OLDPWD
