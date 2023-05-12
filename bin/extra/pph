@@ -2,12 +2,15 @@
 set -e
 
 ## Description: shows proofs found per hour, over the past 'n' hours
-OPTSTR='g'
+#OPTSTR='g'
 
-while getopts "$OPTSTR" opt; do
+while getopts "gv" opt; do
   case "$opt" in
     g)
         GRAPH=true
+        ;;
+    v)
+        set -x
         ;;
     *)
         usage
@@ -52,7 +55,7 @@ echo -n "for the past $HOURS hours... "
 
 function findProofs() {
 		for H in $(seq 1 $HOURS | xargs -I {} date -d '{} hour ago' "+%FT%H") ; do
-			PROOFS=$(echo "$(rg 'Found [1-9] proofs' <( rg $H ~/.chia/mainnet/log/*debug.log*) | wc -l)")
+			PROOFS=$(echo "$(rg 'Found [1-9] proofs' <( rg $H ~/.chia/mainnet/log/harvester-debug.log{,.1,.2}) | wc -l)")
 			paste <(echo $H) <(printf "%6s\n" "$PROOFS")
 		done | tac
 }
@@ -60,10 +63,11 @@ function findProofs() {
 function proofGraph() {
   findProofs > $TMPOUT & spinner
   echo ""
-  MAX=$(cat $TMPOUT | choose 1 | sort | tail -n1)
+  LOW=$(cat $TMPOUT | choose 1 | sort -n -r | tail -n1)
+  MAX=$(cat $TMPOUT | choose 1 | sort -n | tail -n1)
   SUM=$(cat $TMPOUT | choose 1 | paste -sd+ | bc)
   AVG=$(echo "scale=0; $SUM / $HOURS" | bc -l)
-  cat $TMPOUT | choose 1 | tac | nl -n ln | tac | column -t | tr -s ' ' ','| sed 's/^/-/' | uplot line --canvas braille -d , -b barplot -w $(($(tput cols) - 30)) -h 15 --xlabel "Hour" --ylabel "Proofs" -t "Proofs Per Hour" --xlim -$HOURS,0 --ylim 0,$MAX
+  cat $TMPOUT | choose 1 | tac | nl -n ln | tac | column -t | tr -s ' ' ','| sed 's/^/-/' | uplot line --canvas braille -d , -b barplot -w $(($(tput cols) - 30)) -h 15 --xlabel "Hour" --ylabel "Proofs" -t "Proofs Per Hour" --xlim -$HOURS,0 --ylim $LOW,$MAX
   echo "Average: $AVG"
   echo "Total: $SUM"
 #  cat $TMPOUT | tr -s ' ' ',' | uplot line --canvas braille -H -d , -b barplot -w $WIDTH -h 20 -x "Hour" -y "Proofs" -t "Proofs Per Hour"
