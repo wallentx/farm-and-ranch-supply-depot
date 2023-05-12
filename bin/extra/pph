@@ -61,6 +61,12 @@ function findProofs() {
 }
 
 function proofGraph() {
+  if ! [ -x "$(command -v uplot)" ]; then
+    echo 'Error: uplot is not installed, or installed gem is not added to PATH' >&2
+    echo 'Get it at:  https://github.com/red-data-tools/YouPlot' >&2
+    echo 'Get it with:  gem install youplot' >&2
+    exit 1
+  fi
   findProofs > $TMPOUT & spinner
   echo ""
   LOW=$(cat $TMPOUT | choose 1 | sort -n -r | tail -n1)
