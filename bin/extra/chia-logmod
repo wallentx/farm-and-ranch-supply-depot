@@ -1,0 +1,116 @@
+#!/usr/bin/env bash
+
+## Description: Modify logging behavior in config.yaml
+
+perService=false
+unifiedLog=false
+logLevel=""
+
+function dependencyCheck() {
+    if ! command -v yq &> /dev/null; then
+        echo "yq (Golang version) is not installed."
+        echo "Please install it from https://github.com/mikefarah/yq"
+        exit 1
+    else
+        yqVersion=$(yq --version 2>&1)
+        if [[ ! $yqVersion == *"https://github.com/mikefarah/yq/"* ]]; then
+            echo "Detected yq, but it's not the Golang version required for this script."
+            echo "Please install the correct version from https://github.com/mikefarah/yq"
+            exit 1
+        fi
+    fi
+}
+
+dependencyCheck
+
+function usage() {
+    echo "Usage: $(basename $0) [options] config.yaml"
+    echo ""
+    echo "Options:"
+    echo "  -p                   Set unique log file per-service."
+    echo "  -u                   Set unified 'log/debug.log' for all services."
+    echo "  -l level             Set the log level. Valid levels are:"
+    echo "                         DEBUG, INFO, WARNING, ERROR, CRITICAL"
+    echo "  -h                   Display this help and exit."
+    echo ""
+    echo "Note: -p and -u cannot be used together."
+}
+
+while getopts "pul:h" opt; do
+  case $opt in
+    p)
+      perService=true
+      ;;
+    u)
+      unifiedLog=true
+      ;;
+    l)
+      logLevelInput=$(echo "$OPTARG" | awk '{print toupper($0)}')
+      case $logLevelInput in
+        DEBUG|INFO|WARNING|ERROR|CRITICAL)
+          logLevel=$logLevelInput
+          ;;
+        *)
+          echo "Invalid log level: $OPTARG"
+          usage
+          exit 1
+          ;;
+      esac
+      ;;
+    h)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "Invalid option: -$OPTARG" >&2
+      usage
+      exit 1
+      ;;
+  esac
+done
+if [[ -z $1 ]]; then
+  usage
+  exit 1
+fi
+shift $((OPTIND-1))
+
+configFile="${1:-$HOME/.chia/mainnet/config/config.yaml}"
+
+if $perService && $unifiedLog; then
+    echo "Options -p and -u cannot be used together."
+    exit 1
+fi
+
+function update_per_service() {
+    yq e 'with_entries(select(.value.logging != null)) | keys | .[]' "$configFile" | while read key; do
+        logFilename=$(yq e ".$key.logging.log_filename" "$configFile")
+        if [ "$logFilename" == "log/debug.log" ]; then
+            yq e ".$key.logging.log_filename = \"log/$key-debug.log\"" -i "$configFile"
+        fi
+    done
+}
+
+function update_unified_debug_log() {
+    yq e 'with_entries(select(.value.logging != null)) | keys | .[]' "$configFile" | while read key; do
+        yq e ".$key.logging.log_filename = \"log/debug.log\"" -i "$configFile"
+    done
+}
+
+function set_log_level() {
+    local level=$1
+    yq e 'with_entries(select(.value.logging != null)) | keys | .[]' "$configFile" | while read key; do
+        yq e ".$key.logging.log_level = \"$level\"" -i "$configFile"
+    done
+}
+
+if $perService; then
+    update_per_service
+fi
+
+if $unifiedLog; then
+    update_unified_debug_log
+fi
+
+if [ ! -z "$logLevel" ]; then
+    set_log_level "$logLevel"
+fi
