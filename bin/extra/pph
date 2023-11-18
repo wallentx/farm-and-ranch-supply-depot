@@ -54,10 +54,16 @@ echo "Calculating Proofs Per Hour"
 echo -n "for the past $HOURS hours... "
 
 function findProofs() {
-		for H in $(seq 1 $HOURS | xargs -I {} date -d '{} hour ago' "+%FT%H") ; do
-			PROOFS=$(echo "$(rg 'Found [1-9] proofs' <( rg $H ~/.chia/mainnet/log/harvester-debug.log{,.1,.2}) | wc -l)")
-			paste <(echo $H) <(printf "%6s\n" "$PROOFS")
-		done | tac
+    for H in $(seq 1 $HOURS | xargs -I {} date -d '{} hour ago' "+%FT%H") ; do
+        PROOFS=0
+        for file in ~/.chia/mainnet/log/harvester-debug.log{,.1,.2}; do
+            if [ -f "$file" ]; then
+                # Count proofs that fall within the specific hour
+                PROOFS=$((PROOFS + $(rg --only-matching --regexp "$H:[0-5][0-9]:[0-5][0-9].*Found [1-9] proofs" "$file" | wc -l)))
+            fi
+        done
+        paste <(echo $H) <(printf "%6s\n" "$PROOFS")
+    done | tac
 }
 
 function proofGraph() {
