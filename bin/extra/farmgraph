@@ -7,7 +7,7 @@
 # gem install youplot
 
 
-LOGPATH=~/.chia/mainnet/log/debug.*
+LOGPATH=~/.chia/mainnet/log/*debug.*
 
 win_distrib() {
 	stdbuf -o0 grep -s 'eligible' \
@@ -15,4 +15,4 @@ win_distrib() {
 	awk -F" " '{print $5}'
 }
 
-win_distrib | uplot c -r -t "(E)ligible plots per Proof Check, by (O)ccurrence" -x "O" -y "E  " -b barplot
+win_distrib | uplot c -r -t "(E)ligible plots per Proof Check, by (O)ccurrence" --xlabel "O" --ylabel "E  " -b barplot
