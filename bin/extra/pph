@@ -3,16 +3,56 @@ set -e
 
 ## Description: shows Chia Blockchain proofs found per hour, over the past 'n' hours
 
-while getopts "gv" opt; do
+# ANSI color codes
+bold=$(tput bold)
+underline=$(tput smul)
+reset=$(tput sgr0)
+red=$(tput setaf 1)
+green=$(tput setaf 2)
+blue=$(tput setaf 4)
+purple=$(tput setaf 5)
+
+function usage() {
+    local script_name=$(basename "$0")
+
+    # Usage text
+    echo "${bold}${green}Usage:${reset} ${script_name} [options] [hours]"
+    echo
+    echo "${bold}${blue}Options:${reset}"
+    echo "  ${bold}-g${reset}        Display graph view."
+    echo "  ${bold}-h${reset}        Display this help message."
+    echo "  ${bold}-v${reset}        Enable verbose output."
+    echo
+    echo "${bold}${purple}Description:${reset}"
+    echo "  This script shows Chia Blockchain proofs found per hour. By default, it"
+    echo "  displays data for the past 24 hours. You can specify a different duration"
+    echo "  by providing the number of hours as an argument."
+    echo
+    echo "${underline}Examples:${reset}"
+    echo "  ${script_name}          Display proofs for the past 24 hours in table format."
+    echo "  ${script_name} -g 48    Display proofs for the past 48 hours in graph format."
+    echo
+    echo "${red}Note:${reset}"
+    echo "  The graph view requires 'uplot' to be installed and in your PATH."
+    echo
+    echo "${bold}Author: wallentx${reset}"
+}
+
+while getopts "ghv" opt; do
     case "$opt" in
     g)
         GRAPH=true
+        ;;
+    h)
+        usage
+        exit 0
         ;;
     v)
         set -x
         ;;
     *)
         usage
+        exit 1
         ;;
     esac
 done
@@ -26,15 +66,6 @@ function shutdown() {
     rm $TMPOUT
 }
 trap shutdown EXIT
-
-# ANSI color code for blue
-red=$(tput setaf 1)
-green=$(tput setaf 2)
-yellow=$(tput setaf 3)
-blue=$(tput setaf 4)
-purple=$(tput setaf 5)
-reset=$(tput sgr0) # Reset to default color
-
 
 PRE_PROMPT=$(
     cat <<- EOF
@@ -72,19 +103,52 @@ function spinner() {
 
 echo -n "$PRE_PROMPT"
 
+# I like to use 'ripgrep' instead of 'grep' whenever possible, because speed!
+# https://github.com/BurntSushi/ripgrep
 function findProofs() {
+    local search_command
+
+    if command -v rg >/dev/null; then
+        search_command="rg --only-matching --regexp"
+    else
+        search_command="grep -o"
+    fi
+
+    local log_dir="$HOME/.chia/mainnet/log"
+    local harvester_log="$log_dir/harvester-debug.log"
+    local debug_log="$log_dir/debug.log"
+    local log_files=()
+
+    # Check if harvester-debug.log files exist
+    if [[ -f "$harvester_log" ]] || [[ -f "${harvester_log}.1" ]]; then
+        log_files+=("$harvester_log"{,.1,.2,.3,.4})
+    else
+        log_files+=("$debug_log"{,.1,.2,.3,.4,.5,.6})
+    fi
+
     for H in $(seq 1 "$HOURS" | xargs -I {} date -d '{} hour ago' "+%FT%H"); do
         PROOFS=0
-        for file in ~/.chia/mainnet/log/harvester-debug.log{,.1,.2}; do
+        for file in "${log_files[@]}"; do
             if [ -f "$file" ]; then
-                PROOFS=$((PROOFS + $(rg --only-matching --regexp "$H:[0-5][0-9]:[0-5][0-9].*Found [1-9] proofs" "$file" | wc -l)))
+                PROOFS=$((PROOFS + $(${search_command} "$H:[0-5][0-9]:[0-5][0-9].*Found [1-9] proofs" "$file" | wc -l)))
             fi
         done
         paste <(echo "$H") <(printf "%6s\n" "$PROOFS")
     done | tac
 }
 
+# I like to use 'choose' as an alternative to 'cut' and (sometimes) 'awk'
+# https://github.com/theryangeary/choose
+function processLine() {
+    if command -v choose >/dev/null; then
+        choose $0
+    else
+        awk '{print $1}'
+    fi
+}
+
 function proofGraph() {
+    # Check for uplot
     if ! [ -x "$(command -v uplot)" ]; then
         echo 'Error: uplot is not installed, or installed gem is not added to PATH' >&2
         echo 'Get it at:  https://github.com/red-data-tools/YouPlot' >&2
@@ -122,60 +186,72 @@ function proofGraph() {
 }
 
 function printProofs() {
-  findProofs > "$TMPOUT" & spinner
-  SUM=$(cat "$TMPOUT" | choose 1 | paste -sd+ | bc)
-  AVG=$(echo "scale=0; $SUM / $HOURS" | bc -l)
+    findProofs > "$TMPOUT" &
+    spinner
+    SUM=$(cat "$TMPOUT" | choose 1 | paste -sd+ | bc)
+    AVG=$(echo "scale=0; $SUM / $HOURS" | bc -l)
 
-  # Line drawing characters
-  local hl="─" vl="│" tlc="╭" trc="╮" blc="╰" brc="╯" ml="├" mr="┤" mc="┼" tc="┬" bc="┴"
+    # Line drawing characters
+    local hl="─" vl="│" tlc="╭" trc="╮" blc="╰" brc="╯" ml="├" mr="┤" mc="┼" tc="┬" bc="┴"
 
-  # Column widths
-  local c1w=16 c2w=7 h1w=15 h2w=7
+    # Column widths
+    local c1w=16 c2w=7 h1w=15 h2w=7
 
-  # Helper function to create horizontal lines
-  draw_line() {
-    for ((i=0; i<$1; i++)); do
-      printf "%s" "$2"
-    done
-  }
+    # Helper function to create horizontal lines
+    draw_line() {
+        for ((i = 0; i < $1; i++)); do
+            printf "%s" "$2"
+        done
+    }
 
-  # Top border
-  printf "%s" "$tlc"; draw_line $c1w $hl; printf "%s" "$tc"; draw_line $c2w $hl; printf "%s\n" "$trc"
+    # Top border
+    printf "%s" "$tlc"
+    draw_line $c1w $hl
+    printf "%s" "$tc"
+    draw_line $c2w $hl
+    printf "%s\n" "$trc"
 
-  # Header
-  printf "%s%-*s%14s%*s%s\n" "$vl" "$c1w" "${blue}Hour${reset}" "$vl" "$c2w" "${blue}Proofs${reset} " "$vl"
+    # Header
+    printf "%s%-*s%14s%*s%s\n" "$vl" "$c1w" "${blue}Hour${reset}" "$vl" "$c2w" "${blue}Proofs${reset} " "$vl"
 
-  # Middle border
-  printf "%s" "$ml"; draw_line $c1w $hl; printf "%s" "$mc"; draw_line $c2w $hl; printf "%s\n" "$mr"
+    # Middle border
+    printf "%s" "$ml"
+    draw_line $c1w $hl
+    printf "%s" "$mc"
+    draw_line $c2w $hl
+    printf "%s\n" "$mr"
 
-  # Content
-  while IFS= read -r line; do
-    local hour="${line%   *}"
-    local proofs="${line##* }"
-    local color="$reset" # Default color
+    # Content
+    while IFS= read -r line; do
+        local hour="${line%   *}"
+        local proofs="${line##* }"
+        local color="$reset" # Default color
 
-    # Calculate percentage difference from the average (modify the threshold as needed)
-    local threshold=25 # Percentage threshold for color coding
-    if [[ "$proofs" -eq 0 ]]; then
-      color="$red"
-      hour="${hour% }"
-      proofs=" ${proofs% *}"
-    else
-      local percent_diff=$(awk "BEGIN{print (($proofs - $AVG) / $AVG) * 100}")
-      if (( $(echo "$percent_diff < -$threshold" | bc -l) )); then
-        color="$yellow"
-      elif (( $(echo "$percent_diff > $threshold" | bc -l) )); then
-        color="$green"
-      fi
-    fi
+        # Calculate percentage difference from the average (modify the threshold as needed)
+        local threshold=25 # Percentage threshold for color coding
+        if [[ "$proofs" -eq 0 ]]; then
+            color="$red"
+            hour="${hour% }"
+            proofs=" ${proofs% *}"
+        else
+            local percent_diff=$(awk "BEGIN{print (($proofs - $AVG) / $AVG) * 100}")
+            if (($(echo "$percent_diff < -$threshold" | bc -l))); then
+                color="$yellow"
+            elif (($(echo "$percent_diff > $threshold" | bc -l))); then
+                color="$green"
+            fi
+        fi
 
-    printf "%s%-*s%s     %*s%s\n" "$vl" $(($h1w - 4)) "$hour" "$vl" "$h2w" "${color}$proofs${reset}" "$vl"
-  done < "$TMPOUT"
+        printf "%s%-*s%s     %*s%s\n" "$vl" $(($h1w - 4)) "$hour" "$vl" "$h2w" "${color}$proofs${reset}" "$vl"
+    done < "$TMPOUT"
 
-  # Bottom border
-  printf "%s" "$blc"; draw_line $c1w $hl; printf "%s" "$bc"; draw_line $c2w $hl; printf "%s\n" "$brc"
+    # Bottom border
+    printf "%s" "$blc"
+    draw_line $c1w $hl
+    printf "%s" "$bc"
+    draw_line $c2w $hl
+    printf "%s\n" "$brc"
 }
-
 
 if [[ "$GRAPH" == true ]]; then
     proofGraph
