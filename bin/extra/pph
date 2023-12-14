@@ -9,6 +9,7 @@ underline=$(tput smul)
 reset=$(tput sgr0)
 red=$(tput setaf 1)
 green=$(tput setaf 2)
+yellow=$(tput setaf 3)
 blue=$(tput setaf 4)
 purple=$(tput setaf 5)
 
@@ -48,6 +49,7 @@ while getopts "ghv" opt; do
         exit 0
         ;;
     v)
+        DEBUG=true
         set -x
         ;;
     *)
@@ -228,13 +230,16 @@ function printProofs() {
         local color="$reset" # Default color
 
         # Calculate percentage difference from the average (modify the threshold as needed)
-        local threshold=25 # Percentage threshold for color coding
-        if [[ "$proofs" -eq 0 ]]; then
+        local threshold=35 # Percentage threshold for color coding
+        if [[ "$proofs" -le 9 ]]; then
             color="$red"
             hour="${hour% }"
             proofs=" ${proofs% *}"
         else
-            local percent_diff=$(awk "BEGIN{print (($proofs - $AVG) / $AVG) * 100}")
+            local percent_diff=$(awk -v proofs="$proofs" -v AVG="$AVG" 'BEGIN{print (proofs - AVG) / AVG * 100}')
+            if [[ $DEBUG == true ]]; then
+                echo "Hour: $hour, Proofs: $proofs, AVG: $AVG, Percent diff: $percent_diff"
+            fi
             if (($(echo "$percent_diff < -$threshold" | bc -l))); then
                 color="$yellow"
             elif (($(echo "$percent_diff > $threshold" | bc -l))); then
