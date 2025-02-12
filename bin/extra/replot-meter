@@ -1,0 +1,98 @@
+#!/usr/bin/env bash
+
+# Colors using tput
+RED=$(tput setaf 1)
+GREEN=$(tput setaf 2)
+YELLOW=$(tput setaf 3)
+BLUE=$(tput setaf 4)
+CYAN=$(tput setaf 6)
+BOLD=$(tput bold)
+RESET=$(tput sgr0)
+
+fadebar() {
+  : "${p:=${1:?Usage: $0 <0-100>}}"
+  s=64
+  p=$(( p<0 ? 0 : p>100 ? 100 : p ))
+  f=$(( s * p / 100 ))
+
+  for ((i=0; i<s; i++)); do
+    (( i < f )) && { j=$(( f - 1 - i ))
+    b=$(( f > 1 ? 255 - 235 * j / (f - 1) : 255 ))
+    printf "\e[38;2;%d;%d;%dm━" "$b" "$b" "$b"; } || printf " ";
+  done
+
+  printf "\e[0m\n"
+}
+
+base_dir="/mnt/plot"
+
+# Function to convert size into human-readable format
+human_readable_size() {
+    size=$1
+    units=("GiB" "TiB" "PiB" "EiB")
+    i=0
+    while (( $(awk "BEGIN {print ($size >= 1024)}") )) && [ $i -lt ${#units[@]} ]; do
+        size=$(awk "BEGIN {printf \"%.2f\", $size / 1024}")
+        ((i++))
+    done
+    printf "%.2f %s" "$size" "${units[$i]}"
+}
+
+# Count plots
+uncompressed=$(find "$base_dir" -mindepth 2 -maxdepth 3 -type d -name pool -exec find {} -type f -name "*.plot" \; | wc -l)
+compressed=$(find "$base_dir" -mindepth 2 -maxdepth 3 -type d -name cuda -exec find {} -type f -name "*.plot" \; | wc -l)
+
+# Calculate total number of plots and percentage re-plotted
+total=$(( uncompressed + compressed ))
+percent=$(( total == 0 ? 0 : compressed * 100 / total ))
+
+# Disk usage for compressed and uncompressed plots (in GiB)
+compressed_size=$(find "$base_dir" -mindepth 2 -maxdepth 3 -type d -name cuda -exec du -sb {} + | awk '{sum += $1} END {print sum / (1024^3)}')
+uncompressed_size=$(find "$base_dir" -mindepth 2 -maxdepth 3 -type d -name pool -exec du -sb {} + | awk '{sum += $1} END {print sum / (1024^3)}')
+
+# Total disk space across all mounts
+total_disk_size=$(df --output=size -B1 "$base_dir"/* | awk 'NR>1 {sum += $1} END {print sum / (1024^3)}')
+
+# Free disk space
+used_space=$(awk "BEGIN {print $compressed_size + $uncompressed_size}")
+free_space=$(awk "BEGIN {print $total_disk_size - $used_space}")
+
+# Convert total disk size to human-readable format
+human_total_disk_size=$(human_readable_size "$total_disk_size")
+
+# Progress Bar
+bar_width=50
+filled=$(( percent * bar_width / 100 ))
+empty=$(( bar_width - filled ))
+progress_filled=$(printf "%${filled}s" | tr ' ' '#')
+progress_empty=$(printf "%${empty}s" | tr ' ' '-')
+
+# Display counts with colored output
+echo
+echo -e "${BOLD}Plot Counts:${RESET}"
+echo -e "${GREEN}  Compressed:${RESET} $compressed"
+echo -e "${RED}  Uncompressed:${RESET} $uncompressed"
+echo -e "${BOLD}${BLUE}  Total:${RESET} $total"
+echo
+echo -e "${BOLD}${YELLOW}Replotting progress:${RESET} ${percent}% complete"
+echo -e "[${GREEN}${progress_filled}${RED}${progress_empty}${RESET}]"
+echo
+echo -e "${BOLD}${CYAN}Disk Space Usage:${RESET}"
+echo -e "  ${GREEN}Compressed:${RESET} ${compressed_size} GiB"
+echo -e "  ${RED}Uncompressed:${RESET} ${uncompressed_size} GiB"
+echo -e "  ${BLUE}Free:${RESET} ${free_space} GiB"
+echo -e "  ${BOLD}Total:${RESET} ${human_total_disk_size}"
+
+
+#echo -e "[${GREEN}$(fadebar ${filled})${RED}${progress_empty}${RESET}]"
+
+# Display Pie Chart if piechart-cli is available
+if command -v piechart-cli &> /dev/null; then
+    echo -e "\n${BOLD}${CYAN}Replotting Distribution (by Plot Count):${RESET}"
+    piechart-cli "Compressed" "$compressed" "Uncompressed" "$uncompressed"
+
+    echo -e "\n${BOLD}${CYAN}Disk Space Distribution (GiB):${RESET}"
+    piechart-cli "Compressed" "$compressed_size" "Uncompressed" "$uncompressed_size" "Free Space" "$free_space"
+else
+    echo -e "${YELLOW}Pie chart CLI not found. Please install it with 'cargo install --path .'${RESET}"
+fi
