@@ -26,6 +26,7 @@ The Supplies Index of this `README.md` file updates automatically when an Action
       - 📄 [xplot](bin/mm/xplot)
    - 📂 __/home/runner/work/farm-and-ranch-supply-depot/farm-and-ranch-supply-depot/bin/extra__
       - 📄 [xhyper](bin/extra/xhyper)
+      - 📄 [replot\-meter](bin/extra/replot-meter)
       - 📄 [windistrib](bin/extra/windistrib)
          - _Show (or graph) eligible plot distribution per Proof Check, by occurrence._
       - 📄 [bench\-chia](bin/extra/bench-chia)
