@@ -2,6 +2,8 @@
 
 ## Description: replot - This script is not to be ran directly (but it can), and is called by 'replotd'. This script analyzes the chia plot directories, and determines the best drive to move the plot to from the -d buffer drive.
 
+#PID_SELF=$BASHPID
+
 CheckDeps() {
     if ! command -v yq &> /dev/null; then
         echo "ERROR: Missing yq"
@@ -10,7 +12,7 @@ CheckDeps() {
     fi
 }
 
-CHIA_ROOT=$HOME/chia-blockchain
+CHIA_ROOT=$HOME/wsrc/chia-blockchain
 # Example: CHIA_ROOT=$HOME/chia-blockchain
 
 CheckPath() {
@@ -57,10 +59,11 @@ FindMounts() {
     # "$CHIA_ROOT"/venv/bin/chia plots show | \
     #     grep solo | \
     #     sort -R >"$MOUNT_LIST"
-    yq '.harvester.plot_directories[]' \
-        ~/.chia/mainnet/config/config.yaml | \
-        grep solo | \
-        sort -R >"$MOUNT_LIST"
+    #yq '.harvester.plot_directories[]' \
+    #    ~/.chia/mainnet/config/config.yaml | \
+    #    grep solo | \
+    #    sort -R >"$MOUNT_LIST"
+    fd -t d pool /mnt/plot/ | sort -R >"$MOUNT_LIST"
 }
 
 FindBusy() {
@@ -112,9 +115,10 @@ IterateMounts() {
             echo "Identified $OG_TARGET/ for removal"
             rm "$OG_TARGET"
             echo "Removed $OG_TARGET"
-            echo "Moving $WENDY_INODE to $MOUNT_PATH/pool/..."
-            rsync -a --progress --remove-source-files "$WENDY_INODE" "$MOUNT_PATH"/pool/
-            echo "$PLOTNAME has been moved to $MOUNT_PATH/pool/, and is ready for farming!"
+            echo "Moving $WENDY_INODE to $MOUNT_PATH/cuda/..."
+            mkdir -p "${MOUNT_PATH}/cuda"
+            rsync -a --progress --remove-source-files "$WENDY_INODE" "$MOUNT_PATH"/cuda/
+            echo "$PLOTNAME has been moved to $MOUNT_PATH/cuda/, and is ready for farming!"
             break
         else
             echo "No OG plot found in $PLOT_DIR"

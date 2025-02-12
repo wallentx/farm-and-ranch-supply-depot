@@ -57,25 +57,32 @@ yq '.pool.pool_list' "$CH_CFG_PATH" -s '"/tmp/tmppool"'
 python -m pyaml "$TMPNOPOOL" > "$TMPCUR"
 python -m pyaml "$CH_CFG_INIT" > "$TMPNEW"
 
+export BOLD=$(tput bold)
+export RESET=$(tput sgr0)
+export BLUE=$(tput setaf 4)
+export PURP=$(tput setaf 186)
+export YEL=$(tput setaf 203)
+export WHT=$(tput setaf 231)
+
 VIMDIFF_CONTROLS=$(bat -Ppl cmd-help <<- EOF
 
-^[[38;5;186mVIMDIFF CONTROLS ~^[[0m
-^[[38;5;203m|^[[0m^[[38;5;231m   ]c           | advance to the next block with differences |^[[0m
-^[[38;5;203m|^[[0m^[[38;5;231m   [c           | reverse search for the previous block with differences |^[[0m
-^[[38;5;203m|^[[0m^[[38;5;231m   do           | bring changes from the other file to the current file |^[[0m
-^[[38;5;203m|^[[0m^[[38;5;231m   dp           | send changes from the current file to the other file |^[[0m
-^[[38;5;203m|^[[0m^[[38;5;231m   zo           | unfold/unhide text |^[[0m
-^[[38;5;203m|^[[0m^[[38;5;231m   zc           | refold/rehide text |^[[0m
-^[[38;5;203m|^[[0m^[[38;5;231m   zr           | unfold both files completely |^[[0m
-^[[38;5;203m|^[[0m^[[38;5;231m   zm           | fold both files completely |^[[0m
+${PURP}VIMDIFF CONTROLS ~${RESET}
+${YEL}|${RESET} ${WHT}  ]c           | advance to the next block with differences ${RESET}
+${YEL}|${RESET} ${WHT}  [c           | reverse search for the previous block with differences ${RESET}
+${YEL}|${RESET} ${WHT}  do           | bring changes from the other file to the current file ${RESET}
+${YEL}|${RESET} ${WHT}  dp           | send changes from the current file to the other file ${RESET}
+${YEL}|${RESET} ${WHT}  zo           | unfold/unhide text ${RESET}
+${YEL}|${RESET} ${WHT}  zc           | refold/rehide text ${RESET}
+${YEL}|${RESET} ${WHT}  zr           | unfold both files completely ${RESET}
+${YEL}|${RESET} ${WHT}  zm           | fold both files completely ${RESET}
 
-^[[38;5;203mNOTE ABOUT DIFF OBTAIN/PUT CONTROL^[[0m^[[38;5;231m:^[[0m
-^[[38;5;231m-^[[0m^[[38;5;231m ^[[0m^[[38;5;203mNormal Mode^[[0m^[[38;5;231m:^[[0m^[[38;5;231m ^[[0m^[[38;5;186mUse "do" and "dp" controls when your cursor is on, or just one line under a block.^[[0m
-^[[38;5;231m-^[[0m^[[38;5;231m ^[[0m^[[38;5;203mVisual Mode^[[0m^[[38;5;231m:^[[0m^[[38;5;231m ^[[0m^[[38;5;186mUse ":'<,'>diffget" and ":'<,'>diffput" when selecting lines of text.^[[0m
-^[[38;5;231m  ^[[0m^[[38;5;186mSee also ":h copy-diffs".^[[0m
+${YEL}NOTE ABOUT DIFF OBTAIN/PUT CONTROL${RESET}${WHT}:${RESET}
+${WHT}- ${BOLD}${YEL}Normal Mode${RESET}${WHT}: ${PURP}Use "do" and "dp" controls when your cursor is on, or just one line under a block.${RESET}
+${WHT}- ${BOLD}${YEL}Visual Mode${RESET}${WHT}: ${PURP}Use ":'<,'>diffget" and ":'<,'>diffput" when selecting lines of text.${RESET}
+${PURP}  See also ":h copy-diffs".${RESET}
 
-^[[38;5;186m"^[[0m^[[38;5;186m:diffupdate^[[0m^[[38;5;186m"^[[0m^[[38;5;231m ^[[0m^[[38;5;186mwill re-scan the files for changes.^[[0
-^[[38;5;186mWhen you are finished editing, press "escape", and enter ":wqa" and press "enter".^[[0m
+${PURP}":diffupdate"${RESET}${WHT} will re-scan the files for changes.${RESET}
+${PURP}When you are finished editing, press "escape", and enter ":wqa" and press "enter".${RESET}
 
 EOF
 )
