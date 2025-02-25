@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 
-## Description: replot - This script is not to be ran directly (but it can), and is called by 'replotd'. This script analyzes the chia plot directories, and determines the best drive to move the plot to from the -d buffer drive.
+## Description: replot - This script is not to be run directly (but it can) and is called by 'replotd'.
+## It analyzes the chia plot directories and determines the best drive to move the plot from the -d buffer drive.
+## This version adds functions to remove read-only mounts, test I/O on each candidate, and if no pool candidate is found,
+## falls back to simply adding the plot if there’s enough free space.
 
 #PID_SELF=$BASHPID
 
@@ -23,23 +26,6 @@ CheckPath() {
     fi
 }
 
-# This is configured to work with the particular setup of my system.
-# For this to work for you, please read through this and make adjustments as needed.
-# For my system, this works assuming the mountpoint for your drives are structred as:
-#
-#   mnt
-#   ├── plots
-#   │   ├── pool
-#   │   │   └── plot-<NFT_PLOT>.plot
-#   │   └── solo
-#   │       └── plot-<OG_PLOT>.plot
-#   └── plots2
-#       ├── pool
-#       │   └── plot-<NFT_PLOT>.plot
-#       └── solo
-#           └── plot-<OG_PLOT>.plot
-#
-
 PLOTARG=$1
 CheckInteractive() {
     if [[ -z $WENDY_INODE ]]; then
@@ -54,16 +40,25 @@ CheckInteractive() {
 }
 
 MOUNT_LIST="/tmp/$(basename "$0")-mounts.$$.list"
+
 FindMounts() {
-    # If you can't, or don't want to install yq, you can swap the following block with the one below it
-    # "$CHIA_ROOT"/venv/bin/chia plots show | \
-    #     grep solo | \
-    #     sort -R >"$MOUNT_LIST"
-    #yq '.harvester.plot_directories[]' \
-    #    ~/.chia/mainnet/config/config.yaml | \
-    #    grep solo | \
-    #    sort -R >"$MOUNT_LIST"
+    # This example uses fd to find directories named 'pool' under /mnt/plot
     fd -t d pool /mnt/plot/ | sort -R >"$MOUNT_LIST"
+}
+
+# New: Remove mounts that are already mounted read-only
+CheckMountsRW() {
+    NEW_MOUNT_LIST="/tmp/$(basename "$0")-mounts.tmp.$$"
+    while read -r mount_dir; do
+        # Use findmnt to get the mount options for the directory
+        options=$(findmnt -no OPTIONS "$mount_dir" 2>/dev/null)
+        if echo "$options" | grep -qw "ro"; then
+            echo "Skipping read-only mount: $mount_dir"
+        else
+            echo "$mount_dir" >> "$NEW_MOUNT_LIST"
+        fi
+    done < "$MOUNT_LIST"
+    mv "$NEW_MOUNT_LIST" "$MOUNT_LIST"
 }
 
 FindBusy() {
@@ -71,7 +66,7 @@ FindBusy() {
     BUSY_LIST="/tmp/$(basename "$0")-busy.$$.list"
     pgrep -fa "^rsync" | \
         grep 'plot' | \
-        grep 'pool/\|solo/' | \
+        grep 'pool/\|solo/\|cuda/' | \
         sed -e 's/^.* //;s/.$//' | \
         sort | \
         uniq > "$BUSY_LIST"
@@ -81,13 +76,13 @@ RemoveBusy() {
     echo "Excluding busy volumes..."
     if [[ -s "$BUSY_LIST" ]]; then
         while read -r BUSY; do
-        ESC_BUSY="$(dirname $(printf '%s\n' "$BUSY") | sed -e 's/[\/&]/\\&/g')"
-        sed -i "/^$ESC_BUSY\b/Id" "$MOUNT_LIST"
+            ESC_BUSY="$(dirname $(printf '%s\n' "$BUSY") | sed -e 's/[\/&]/\\&/g')"
+            sed -i "/^$ESC_BUSY\b/Id" "$MOUNT_LIST"
         done <"$BUSY_LIST"
     fi
 }
 
-CheckMounts() {
+CheckMountsLoop() {
     n=0
     until [ "$n" -ge 5 ]; do
         FindBusy
@@ -97,7 +92,7 @@ CheckMounts() {
         echo "No available mounts. Checking again in 5 minutes..."
         sleep 5m
     done
-    if [[ $n -eq 6 ]]; then
+    if [[ $n -ge 5 ]]; then
         echo "Could not find an available mount. Giving up"
         rm "$MOUNT_LIST"
         rm "$BUSY_LIST"
@@ -105,33 +100,104 @@ CheckMounts() {
     fi
 }
 
+# New: Test I/O on a given directory by writing a small file.
+# If the write fails, try to remount the mount as read-only (requires sudo) and return failure.
+TestIO() {
+    local test_dir="$1"
+    local testfile="$test_dir/test-write.$$"
+    if dd if=/dev/zero of="$testfile" bs=4K count=1 oflag=sync 2>/dev/null; then
+        rm "$testfile"
+        return 0
+    else
+        echo "I/O test failed on $test_dir, attempting to remount as read-only..."
+        sudo mount -o remount,ro "$test_dir" 2>/dev/null
+        return 1
+    fi
+}
+
+# Fallback: If no pool candidate is found, try to add the plot to a mount with sufficient free space.
+FallbackAddPlot() {
+    PLOTNAME="$(basename "$WENDY_INODE")"
+    FILE_SIZE=$(stat -c%s "$WENDY_INODE")
+    while read -r PLOT_DIR; do
+        MOUNT_PATH="$(dirname "$PLOT_DIR")"
+        echo "Evaluating fallback mount $MOUNT_PATH..."
+        if ! TestIO "$MOUNT_PATH"; then
+            echo "Skipping $MOUNT_PATH due to I/O test failure."
+            continue
+        fi
+        FREE_SPACE=$(df --output=avail -B1 "$MOUNT_PATH" | tail -n 1)
+        if (( FREE_SPACE > FILE_SIZE )); then
+            echo "Adding $WENDY_INODE to $MOUNT_PATH/cuda/..."
+            mkdir -p "${MOUNT_PATH}/cuda"
+            rsync -a --progress --remove-source-files "$WENDY_INODE" "$MOUNT_PATH"/cuda/
+            if [[ $? -ne 0 ]]; then
+                echo "ERROR: rsync failed in fallback mode." >&2
+                continue
+            fi
+            echo "$PLOTNAME has been added to $MOUNT_PATH/cuda/."
+            return 0
+        else
+            echo "Not enough free space on $MOUNT_PATH, skipping."
+        fi
+    done < "$MOUNT_LIST"
+    echo "Fallback: No mount has enough free space."
+    return 1
+}
+
 IterateMounts() {
+    TRANSFER_DONE=0
     while read -r PLOT_DIR; do
         PLOTNAME="$(basename "$WENDY_INODE")"
         OG_TARGET="$(find "$PLOT_DIR"/ -type f -name '*.plot' -print -quit)"
         MOUNT_PATH="$(dirname "$PLOT_DIR")"
         echo "Evaluating $PLOT_DIR/..."
+        # Test I/O before proceeding
+        if ! TestIO "$MOUNT_PATH"; then
+            echo "Skipping $MOUNT_PATH due to I/O test failure."
+            continue
+        fi
         if [[ -n $OG_TARGET ]]; then
-            echo "Identified $OG_TARGET/ for removal"
+            echo "Identified $OG_TARGET for removal"
             rm "$OG_TARGET"
+            if [[ $? -ne 0 ]]; then
+                echo "ERROR: Failed to remove $OG_TARGET. Input/output error detected." >&2
+                exit 1
+            fi
             echo "Removed $OG_TARGET"
             echo "Moving $WENDY_INODE to $MOUNT_PATH/cuda/..."
             mkdir -p "${MOUNT_PATH}/cuda"
             rsync -a --progress --remove-source-files "$WENDY_INODE" "$MOUNT_PATH"/cuda/
+            if [[ $? -ne 0 ]]; then
+                echo "ERROR: rsync failed. Transfer did not complete." >&2
+                exit 1
+            fi
             echo "$PLOTNAME has been moved to $MOUNT_PATH/cuda/, and is ready for farming!"
+            TRANSFER_DONE=1
             break
         else
             echo "No OG plot found in $PLOT_DIR"
         fi
-    done <"$MOUNT_LIST"
+    done < "$MOUNT_LIST"
+    if [[ $TRANSFER_DONE -eq 0 ]]; then
+        echo "No pool candidate found, falling back to adding plot..."
+        FallbackAddPlot
+        if [[ $? -ne 0 ]]; then
+            echo "Fallback add failed. Exiting."
+            exit 1
+        fi
+    fi
 }
 
+# Main execution
 CheckDeps
 CheckPath
 CheckInteractive
 FindMounts
-CheckMounts
+CheckMountsRW
+CheckMountsLoop
 IterateMounts
 
 rm "$MOUNT_LIST"
 rm "$BUSY_LIST"
+
