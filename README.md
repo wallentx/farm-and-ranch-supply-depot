@@ -50,7 +50,7 @@ The Supplies Index of this `README.md` file updates automatically when an Action
       - 📄 [ptable](bin/extra/ptable)
    - 📂 __/home/runner/work/farm-and-ranch-supply-depot/farm-and-ranch-supply-depot/bin/final-plot-management__
       - 📄 [replot](bin/final-plot-management/replot)
-         - _replot - This script is not to be ran directly (but it can), and is called by 'replotd'. This script analyzes the chia plot directories, and determines the best drive to move the plot to from the -d buffer drive._
+         - _replot - This script is not to be run directly (but it can) and is called by 'replotd'._
       - 📄 [replotd](bin/final-plot-management/replotd)
          - _replotd - This script runs like a daemon. Upon completion of a new plot, it analyzes the chia plot directories, locates an OG plot, deletes it, and moves the new plot in it's place. You need to pass it the path to the final directory of your newly created plots._
       - 📄 [README.md](bin/final-plot-management/README.md)
@@ -60,7 +60,7 @@ The Supplies Index of this `README.md` file updates automatically when an Action
          - _Foreman - This script assumes a few things - That your -d is a fast buffer volume to momentarily hold your plots until the Excavator script moves it to one of many HDDs mounted at /mnt/plots* (/mnt/plots, /mnt/plots2, /mnt/plots3, etc.). The purpose of this is to take away the task of moving the final plot to slower storage, from the plotting task. Time spent moving final plots can instead be spent on starting new plotting tasks. This script uses https://github.com/z3bra/wendy to watch your buffer directory, and trigger the Excavator upon inotify event 128 - a file rename - which is the last task of the plot creation. This is runs like a daemon._
    - 📂 __/home/runner/work/farm-and-ranch-supply-depot/farm-and-ranch-supply-depot/bin/final-plot-management/replot__
       - 📄 [replot](bin/replot/replot)
-         - _replot - This script is not to be ran directly (but it can), and is called by 'replotd'. This script analyzes the chia plot directories, and determines the best drive to move the plot to from the -d buffer drive._
+         - _replot - This script is not to be run directly (but it can) and is called by 'replotd'._
       - 📄 [replotd](bin/replot/replotd)
          - _replotd - This script runs like a daemon. Upon completion of a new plot, it analyzes the chia plot directories, locates an OG plot, deletes it, and moves the new plot in it's place. You need to pass it the path to the final directory of your newly created plots._
       - 📄 [README.md](bin/replot/README.md)
