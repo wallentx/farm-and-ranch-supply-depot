@@ -15,17 +15,6 @@ CheckDeps() {
     fi
 }
 
-CHIA_ROOT=$HOME/wsrc/chia-blockchain
-# Example: CHIA_ROOT=$HOME/chia-blockchain
-
-CheckPath() {
-    if [[ -z $CHIA_ROOT ]]; then
-        echo "ERROR: CHIA_ROOT is unset."
-        echo "Edit $0, and set the value of line #4 to the path of your chia-blockchain repo."
-        exit 1
-    fi
-}
-
 PLOTARG=$1
 CheckInteractive() {
     if [[ -z $WENDY_INODE ]]; then

@@ -1,47 +1,33 @@
 #!/usr/bin/env bash
-#set -x
+
 ## Description: Excavator - This script is not to be ran directly (but it can), and is called by 'Foreman'. This script analyzes the chia plot directories, and determines the best drive to move the plot to from the -d buffer drive.
+## This version adds functions to remove read-only mounts, test I/O on each candidate, and provides better error handling.
+
+# Directory structure for plot storage:
+#   /mnt/plot/
+#   ├── plots1/
+#   │   └── cuda/
+#   │       └── plot-<NFT_PLOT>.plot
+#   ├── plots2/
+#   │   └── cuda/
+#   │       └── plot-<NFT_PLOT>.plot
+#   └── plotsN/
+#       └── cuda/
+#           └── plot-<NFT_PLOT>.plot
+# (where N is the total number of plot directories)
 
 CheckDeps() {
-    if ! command -v ProofOfSpace &> /dev/null; then
-        echo "ERROR: Missing ProofOfSpace"
-        echo "Get it - https://github.com/Chia-Network/chiapos"
-        exit 1
-    fi
     if ! command -v yq &> /dev/null; then
         echo "ERROR: Missing yq"
         echo "Get it with: go install github.com/mikefarah/yq/v4@latest"
         exit 1
     fi
-}
-
-CHIA_ROOT=$HOME/chia-blockchain
-# Example: CHIA_ROOT=$HOME/chia-blockchain
-
-CheckPath() {
-    if [[ -z $CHIA_ROOT ]]; then
-        echo "ERROR: CHIA_ROOT is unset."
-        echo "Edit $0, and set the value of line #4 to the path of your chia-blockchain repo."
+    if ! command -v fd &> /dev/null; then
+        echo "ERROR: Missing fd"
+        echo "Get it with: brew install fd"
         exit 1
     fi
 }
-
-# This is configured to work with the particular setup of my system.
-# For this to work for you, please read through this and make adjustments as needed.
-# For my system, this works assuming the mountpoint for your drives are structred as:
-#
-#   mnt
-#   ├── plots
-#   │   ├── pool
-#   │   │   └── plot-<NFT_PLOT>.plot
-#   │   └── solo
-#   │       └── plot-<OG_PLOT>.plot
-#   └── plots2
-#       ├── pool
-#       │   └── plot-<NFT_PLOT>.plot
-#       └── solo
-#           └── plot-<OG_PLOT>.plot
-#
 
 PLOTARG=$1
 CheckInteractive() {
@@ -58,41 +44,58 @@ CheckInteractive() {
 
 MOUNT_LIST="/tmp/$(basename "$0")-mounts.$$.list"
 FindMounts() {
-    echo "Finding plot locations..."
-    "$CHIA_ROOT"/venv/bin/chia plots show | \
-    grep 'mnt' | xargs -I {} bash -c 'find {} -type d -name "plots*"' | \
-#        grep 'solo\|pool' | \
-#        sed 's,/*[^/]\+/*$,,' | \
-        sort -R >"$MOUNT_LIST"
+    # This example uses fd to find directories named 'plots*' under /mnt/plot
+    fd -t d plots /mnt/plot/ | sort -R >"$MOUNT_LIST"
 }
 
-#FindDupes() {
-#    echo "Finding presence of existing plots..."
-#    PLOTNAME=$(basename "$WENDY_INODE")
-#       PLOTPATH=$(dirname "$WENDY_INODE")
-#    PLOTDUPE=$(find /mnt/* -type f -name '*'$PLOTNAME'*' ! -path $PLOTPATH/'*')
-#    DUPEPATH=$(dirname "$PLOTDUPE")
-#    if find /mnt/* -type f -name '*'$PLOTNAME'*' | grep -q .; then
-#        if ${ProofOfSpace check -f $PLOTDUPE 1 &>/dev/null}; then
-#            echo "Plot $PLOTNAME already exists at $DUPEPATH, and is valid"
-#            echo "Consider deleting $WENDY_INODE"
-#            rm "$MOUNT_LIST"
-#            exit 1
-#        else
-#            echo "Plot $PLOTNAME already exists at $DUPEPATH, but does not appear to be valid"
-#            echo "Plot transfer may already be in progress, or incomplete plot may need to be removed"
-#            rm "$MOUNT_LIST"
-#            exit 1
-#        fi
-#    fi
-#}
+FindDupes() {
+    echo "Checking for existing plots..."
+    PLOTNAME=$(basename "$WENDY_INODE")
+    NEW_SIZE=$(stat --printf='%s' "$WENDY_INODE")
+    
+    # Find any existing plots with the same name
+    EXISTING_PLOT=$(fd -t f "$PLOTNAME" /mnt/plot/ 2>/dev/null)
+    
+    if [[ -n "$EXISTING_PLOT" ]]; then
+        EXISTING_SIZE=$(stat --printf='%s' "$EXISTING_PLOT")
+        echo "Found existing plot at: $EXISTING_PLOT"
+        
+        if [[ $NEW_SIZE -eq $EXISTING_SIZE ]]; then
+            echo "New plot is the same size as existing plot. Removing new plot and keeping existing one."
+            rm "$WENDY_INODE"
+            exit 0
+        elif [[ $NEW_SIZE -gt $EXISTING_SIZE ]]; then
+            echo "New plot is larger than existing plot. Will replace existing plot."
+            rm "$EXISTING_PLOT"
+        else
+            echo "New plot is smaller than existing plot. Keeping existing plot and removing new one."
+            rm "$WENDY_INODE"
+            exit 0
+        fi
+    fi
+}
+
+# Remove mounts that are already mounted read-only
+CheckMountsRW() {
+    NEW_MOUNT_LIST="/tmp/$(basename "$0")-mounts.tmp.$$"
+    while read -r mount_dir; do
+        # Use findmnt to get the mount options for the directory
+        options=$(findmnt -no OPTIONS "$mount_dir" 2>/dev/null)
+        if echo "$options" | grep -qw "ro"; then
+            echo "Skipping read-only mount: $mount_dir"
+        else
+            echo "$mount_dir" >> "$NEW_MOUNT_LIST"
+        fi
+    done < "$MOUNT_LIST"
+    mv "$NEW_MOUNT_LIST" "$MOUNT_LIST"
+}
 
 FindBusy() {
     echo "Finding busy volumes..."
     BUSY_LIST="/tmp/$(basename "$0")-busy.$$.list"
     pgrep -fa "^rsync" | \
         grep 'plot' | \
-        grep 'pool/\|solo/' | \
+        grep 'cuda/' | \
         sed -e 's/^.* //;s/.$//' | \
         sort | \
         uniq > "$BUSY_LIST"
@@ -102,13 +105,13 @@ RemoveBusy() {
     echo "Excluding busy volumes..."
     if [[ -s "$BUSY_LIST" ]]; then
         while read -r BUSY; do
-        ESC_BUSY="$(dirname $(printf '%s\n' "$BUSY") | sed -e 's/[\/&]/\\&/g')"
-        sed -i "/^$ESC_BUSY\b/Id" "$MOUNT_LIST"
+            ESC_BUSY="$(dirname $(printf '%s\n' "$BUSY") | sed -e 's/[\/&]/\\&/g')"
+            sed -i "/^$ESC_BUSY\b/Id" "$MOUNT_LIST"
         done <"$BUSY_LIST"
     fi
 }
 
-CheckMounts() {
+CheckMountsLoop() {
     n=0
     until [ "$n" -ge 5 ]; do
         FindBusy
@@ -118,7 +121,7 @@ CheckMounts() {
         echo "No available mounts. Checking again in 5 minutes..."
         sleep 5m
     done
-    if [[ $n -eq 6 ]]; then
+    if [[ $n -ge 5 ]]; then
         echo "Could not find an available mount. Giving up"
         rm "$MOUNT_LIST"
         rm "$BUSY_LIST"
@@ -126,43 +129,67 @@ CheckMounts() {
     fi
 }
 
+# Test I/O on a given directory by writing a small file
+TestIO() {
+    local test_dir="$1"
+    local testfile="$test_dir/test-write.$$"
+    if dd if=/dev/zero of="$testfile" bs=4K count=1 oflag=sync 2>/dev/null; then
+        rm "$testfile"
+        return 0
+    else
+        echo "I/O test failed on $test_dir, attempting to remount as read-only..."
+        sudo mount -o remount,ro "$test_dir" 2>/dev/null
+        return 1
+    fi
+}
+
 IterateMounts() {
-    m=0
-    until [ "$m" -ge 5 ]; do
-        while read -r TARGET; do
-            PLOTNAME=$(basename "$WENDY_INODE")
-            PLOTSIZE=$(stat --printf='%s' "$WENDY_INODE")
-            AVAIL=$(df -H --output=avail --block-size=1 "$TARGET" | tail -n 1 | xargs)
-            PLOTCOUNT="$((AVAIL / PLOTSIZE))"
-            echo "Evaluating mount..."
-            if [[ $PLOTCOUNT -gt 0 ]]; then
-                echo "Moving $WENDY_INODE to $TARGET/pool/..."
-                rsync -a --remove-source-files "$WENDY_INODE" "$TARGET"/pool/"$PLOTNAME"
-                if [[ -f "$TARGET"/pool/"$PLOTNAME" ]]; then
-                    echo "$PLOTNAME has been moved to $TARGET/pool/, and is ready for farming!"
-                    exit 0
-                fi
-                break 2
+    TRANSFER_DONE=0
+    while read -r PLOT_DIR; do
+        PLOTNAME="$(basename "$WENDY_INODE")"
+        MOUNT_PATH="$(dirname "$PLOT_DIR")"
+        echo "Evaluating $PLOT_DIR/..."
+        
+        # Test I/O before proceeding
+        if ! TestIO "$MOUNT_PATH"; then
+            echo "Skipping $MOUNT_PATH due to I/O test failure."
+            continue
+        fi
+
+        # Check available space
+        PLOTSIZE=$(stat --printf='%s' "$WENDY_INODE")
+        AVAIL=$(df --output=avail -B1 "$MOUNT_PATH" | tail -n 1)
+        PLOTCOUNT="$((AVAIL / PLOTSIZE))"
+        
+        if [[ $PLOTCOUNT -gt 0 ]]; then
+            echo "Moving $WENDY_INODE to $MOUNT_PATH/cuda/..."
+            mkdir -p "${MOUNT_PATH}/cuda"
+            rsync -a --progress --remove-source-files "$WENDY_INODE" "$MOUNT_PATH"/cuda/
+            if [[ $? -ne 0 ]]; then
+                echo "ERROR: rsync failed. Transfer did not complete." >&2
+                continue
             fi
-        done < "$MOUNT_LIST"
-        m=$((m+1))
-        echo "No available mounts. Checking again in 5 minutes..."
-        sleep 5m
-    done
-    if [[ $m -eq 6 ]]; then
-        echo "Could not find an available mount. Giving up."
-        rm "$MOUNT_LIST"
-        rm "$BUSY_LIST"
+            echo "$PLOTNAME has been moved to $MOUNT_PATH/cuda/, and is ready for farming!"
+            TRANSFER_DONE=1
+            break
+        else
+            echo "Not enough free space on $MOUNT_PATH, skipping."
+        fi
+    done < "$MOUNT_LIST"
+    
+    if [[ $TRANSFER_DONE -eq 0 ]]; then
+        echo "Could not find a suitable mount with enough free space."
         exit 1
     fi
 }
 
+# Main execution
 CheckDeps
-CheckPath
 CheckInteractive
+FindDupes
 FindMounts
-#FindDupes
-CheckMounts
+CheckMountsRW
+CheckMountsLoop
 IterateMounts
 
 rm "$MOUNT_LIST"
