@@ -47,7 +47,8 @@ echo "$README_TOP" > "$PROJECT_ROOT"/README.md
 
 #for AISLE in "$AISLES"; do
 while read -r AISLE; do
-  echo -e "   - 📂 __${AISLE}__" >> "$PROJECT_ROOT"/README.md
+  AISLE_NAME=$(basename "$AISLE")
+  echo -e "   - 📂 __${AISLE_NAME}__" >> "$PROJECT_ROOT"/README.md
   while read -r SUPPLY_BIN; do
 	  for CRATE in $SUPPLY_BIN; do
 		  GHFILENAME=$(basename "$CRATE")
