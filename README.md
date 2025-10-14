@@ -13,11 +13,11 @@ The Supplies Index of this `README.md` file updates automatically when an Action
 # Supply Index
 
 - 📂 __bin__
-   - 📂 __/home/runner/work/farm-and-ranch-supply-depot/farm-and-ranch-supply-depot/bin/chsrc__
+   - 📂 __chsrc__
       - 📄 [ch\-activate](bin/chsrc/ch-activate)
       - 📄 [README.md](bin/chsrc/README.md)
       - 📄 [.bash_functions](bin/chsrc/.bash_functions)
-   - 📂 __/home/runner/work/farm-and-ranch-supply-depot/farm-and-ranch-supply-depot/bin/extra__
+   - 📂 __extra__
       - 📄 [ptable](bin/extra/ptable)
       - 📄 [add\-nodes](bin/extra/add-nodes)
       - 📄 [pph](bin/extra/pph)
@@ -41,7 +41,7 @@ The Supplies Index of this `README.md` file updates automatically when an Action
       - 📄 [dfcsort](bin/extra/dfcsort)
       - 📄 [chia\-oom\-protect](bin/extra/chia-oom-protect)
       - 📄 [logo.txt.zst](bin/extra/logo.txt.zst)
-   - 📂 __/home/runner/work/farm-and-ranch-supply-depot/farm-and-ranch-supply-depot/bin/final-plot-management__
+   - 📂 __final-plot-management__
       - 📄 [replot](bin/final-plot-management/replot)
          - _replot - This script is not to be run directly (but it can) and is called by 'replotd'._
       - 📄 [README.md](bin/final-plot-management/README.md)
@@ -51,26 +51,26 @@ The Supplies Index of this `README.md` file updates automatically when an Action
          - _Foreman - This script assumes a few things - That your -d is a fast buffer volume to momentarily hold your plots until the Excavator script moves it to one of many HDDs mounted at /mnt/plots* (/mnt/plots, /mnt/plots2, /mnt/plots3, etc.). The purpose of this is to take away the task of moving final plots to slower storage, from the plotting task. Time spent moving final plots can instead be spent on starting new plotting tasks. This script uses https://github.com/z3bra/wendy to watch your buffer directory, and trigger the Excavator upon inotify event 128 - a file rename - which is the last task of the plot creation. This runs like a daemon._
       - 📄 [Excavator](bin/final-plot-management/Excavator)
          - _Excavator - This script is not to be ran directly (but it can), and is called by 'Foreman'. This script analyzes the chia plot directories, and determines the best drive to move the plot to from the -d buffer drive._
-   - 📂 __/home/runner/work/farm-and-ranch-supply-depot/farm-and-ranch-supply-depot/bin/final-plot-management/replot__
+   - 📂 __replot__
       - 📄 [replot](bin/replot/replot)
          - _replot - This script is not to be run directly (but it can) and is called by 'replotd'._
       - 📄 [README.md](bin/replot/README.md)
       - 📄 [replotd](bin/replot/replotd)
          - _replotd - This script runs like a daemon. Upon completion of a new plot, it analyzes the chia plot directories, locates an OG plot, deletes it, and moves the new plot in it's place. You need to pass it the path to the final directory of your newly created plots._
-   - 📂 __/home/runner/work/farm-and-ranch-supply-depot/farm-and-ranch-supply-depot/bin/final-plot-management/plot__
+   - 📂 __plot__
       - 📄 [Foreman](bin/plot/Foreman)
          - _Foreman - This script assumes a few things - That your -d is a fast buffer volume to momentarily hold your plots until the Excavator script moves it to one of many HDDs mounted at /mnt/plots* (/mnt/plots, /mnt/plots2, /mnt/plots3, etc.). The purpose of this is to take away the task of moving final plots to slower storage, from the plotting task. Time spent moving final plots can instead be spent on starting new plotting tasks. This script uses https://github.com/z3bra/wendy to watch your buffer directory, and trigger the Excavator upon inotify event 128 - a file rename - which is the last task of the plot creation. This runs like a daemon._
       - 📄 [Excavator](bin/plot/Excavator)
          - _Excavator - This script is not to be ran directly (but it can), and is called by 'Foreman'. This script analyzes the chia plot directories, and determines the best drive to move the plot to from the -d buffer drive._
-   - 📂 __/home/runner/work/farm-and-ranch-supply-depot/farm-and-ranch-supply-depot/bin/vanilla-maxParallel__
+   - 📂 __vanilla-maxParallel__
       - 📄 [OxPlow](bin/vanilla-maxParallel/OxPlow)
          - _OxPlow - Plot creation task. This is executed automatically by the systemd LandBureau service. Please review this file and make changes appropriate for your system._
-   - 📂 __/home/runner/work/farm-and-ranch-supply-depot/farm-and-ranch-supply-depot/bin/mm__
+   - 📂 __mm__
       - 📄 [xplot](bin/mm/xplot)
-   - 📂 __/home/runner/work/farm-and-ranch-supply-depot/farm-and-ranch-supply-depot/bin/vanilla-phaseControl__
+   - 📂 __vanilla-phaseControl__
       - 📄 [phasegate](bin/vanilla-phaseControl/phasegate)
       - 📄 [phaseadd](bin/vanilla-phaseControl/phaseadd)
-   - 📂 __/home/runner/work/farm-and-ranch-supply-depot/farm-and-ranch-supply-depot/bin/config-management__
+   - 📂 __config-management__
       - 📄 [almanac](bin/config-management/almanac)
       - 📄 [README.md](bin/config-management/README.md)
 
