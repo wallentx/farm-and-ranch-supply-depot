@@ -1,267 +1,375 @@
 #!/usr/bin/env bash
 set -e
 
-## Description: shows Chia Blockchain proofs found per hour, over the past 'n' hours
+## Description: shows proofs/partials/qualities per hour over the past N hours.
 
-# ANSI color codes
-bold=$(tput bold)
-underline=$(tput smul)
-reset=$(tput sgr0)
-red=$(tput setaf 1)
-green=$(tput setaf 2)
-yellow=$(tput setaf 3)
-blue=$(tput setaf 4)
-purple=$(tput setaf 5)
+OPTSTR='gd:ts'
+SHOW_GRAPH=false
+SHOW_TABLE=false
+SHOW_SUMMARY=false
+DATA_COLS="PROOFS,QUALITIES,PARTIALS"
 
-function usage() {
-    local script_name=$(basename "$0")
-
-    # Usage text
-    echo "${bold}${green}Usage:${reset} ${script_name} [options] [hours]"
-    echo
-    echo "${bold}${blue}Options:${reset}"
-    echo "  ${bold}-g${reset}        Display graph view."
-    echo "  ${bold}-h${reset}        Display this help message."
-    echo "  ${bold}-v${reset}        Enable verbose output."
-    echo
-    echo "${bold}${purple}Description:${reset}"
-    echo "  This script shows Chia Blockchain proofs found per hour. By default, it"
-    echo "  displays data for the past 24 hours. You can specify a different duration"
-    echo "  by providing the number of hours as an argument."
-    echo
-    echo "${underline}Examples:${reset}"
-    echo "  ${script_name}          Display proofs for the past 24 hours in table format."
-    echo "  ${script_name} -g 48    Display proofs for the past 48 hours in graph format."
-    echo
-    echo "${red}Note:${reset}"
-    echo "  The graph view requires 'uplot' to be installed and in your PATH."
-    echo
-    echo "${bold}Author: wallentx${reset}"
+usage() {
+  echo "Usage: $0 [-t] [-g] [-s] [-d DATA] [HOURS]"
+  echo
+  echo "  -t       Show table (default if no other display options)"
+  echo "  -g       Show graphs (uplot)"
+  echo "  -s       Show summary stats (Average/Total)"
+  echo "  -d DATA  Select data columns to display (comma-separated)."
+  echo "           Options: PROOFS, QUALITIES, PARTIALS, FARMING"
+  echo "           Default: PROOFS,QUALITIES,PARTIALS"
+  echo "           Note: FARMING is only applicable to graph mode."
+  echo "  HOURS    Number of hours back to analyze (default: 24)"
 }
 
-while getopts "ghv" opt; do
-    case "$opt" in
+# Parse options
+while getopts "$OPTSTR" opt; do
+  case "$opt" in
     g)
-        GRAPH=true
-        ;;
-    h)
-        usage
-        exit 0
-        ;;
-    v)
-        DEBUG=true
-        set -x
-        ;;
+      SHOW_GRAPH=true
+      ;;
+    t)
+      SHOW_TABLE=true
+      ;;
+    s)
+      SHOW_SUMMARY=true
+      ;;
+    d)
+      DATA_COLS="$OPTARG"
+      ;;
     *)
-        usage
-        exit 1
-        ;;
-    esac
+      usage
+      exit 1
+      ;;
+  esac
 done
 shift "$((OPTIND - 1))"
 
-HOURS=${1:-24}
-TMPOUT=$(mktemp /tmp/tmpXXXXXXXXXX)
+# Normalize DATA_COLS: uppercase and remove spaces
+DATA_COLS=$(echo "$DATA_COLS" | tr '[:lower:]' '[:upper:]' | tr -d ' ')
 
-function shutdown() {
-    tput cnorm
-    rm $TMPOUT
+# Default behavior: if no display flags are set, show Table + Summary
+if [[ "$SHOW_GRAPH" == "false" && "$SHOW_TABLE" == "false" && "$SHOW_SUMMARY" == "false" ]]; then
+  SHOW_TABLE=true
+  SHOW_SUMMARY=true
+fi
+
+HOURS=${1:-24}
+
+TMPOUT=$(mktemp /tmp/tmpXXXXXXXXXX)          # proofs
+TMPOUT2=$(mktemp /tmp/tmp2XXXXXXXXXX)        # partials
+TMPOUT3=$(mktemp /tmp/tmp3XXXXXXXXXX)        # combined CSV for multi-line graph
+TMPOUT4=$(mktemp /tmp/tmp4XXXXXXXXXX)        # farming
+TMPOUT5=$(mktemp /tmp/tmp5XXXXXXXXXX)        # qualities
+TMPOUT_FARMING_EVENTS=$(mktemp /tmp/tmp.events.XXXXXX)
+
+# We might generate more temp files for values, ensure they are cleaned
+TMPOUT_VALS_P="$TMPOUT.val"
+TMPOUT_VALS_Q="$TMPOUT5.val"
+TMPOUT_VALS_R="$TMPOUT2.val"
+TMPOUT_VALS_F="$TMPOUT4.val"
+TMPOUT_HOURS="$TMPOUT.hours"
+
+shutdown() {
+  tput cnorm || true
+  rm -f "$TMPOUT" "$TMPOUT2" "$TMPOUT3" "$TMPOUT4" "$TMPOUT5" "$TMPOUT_FARMING_EVENTS" \
+        "$TMPOUT_VALS_P" "$TMPOUT_VALS_Q" "$TMPOUT_VALS_R" "$TMPOUT_VALS_F" "$TMPOUT_HOURS" \
+        "${TMPOUT3}.max" "${TMPOUT3}.x" "${TMPOUT}.val_table" "${TMPOUT2}.val_table" "${TMPOUT5}.val_table" \
+        "${TMPOUT3}.scaled"
 }
 trap shutdown EXIT
 
-PRE_PROMPT=$(
-    cat <<- EOF
-${yellow}Calculating Proofs Per Hour${reset}
-for the past ${red}$HOURS${reset} hours...
-EOF
-)
+echo
+echo "Calculating stats for the past $HOURS hours..."
 
-POST_PROMPT=$(
-    cat <<- EOF
-Proofs found per hour over the past ${red}$HOURS${reset} hours:
-EOF
-)
-
-function spinner() {
-    local LC_CTYPE=en_US.UTF-8
-    tput civis
-    local spin="⣷⣯⣟⡿⢿⣻⣽⣾"
-    local pid=$(jobs -p)
-    local charwidth=1
-    while kill -0 "$pid" 2> /dev/null; do
-        local i=$(((i + $charwidth) % ${#spin}))
-        printf "%s" "$(tput setaf 2)${spin:$i:$charwidth}$(tput sgr0)"
-        tput cub1
-        sleep .1
-    done
-    tput cr
-    tput el
-    tput cuu1
-    tput el
-    echo "$POST_PROMPT"
-    tput cnorm
-    wait $(jobs -p)
+_hours_back() {
+  local i
+  for ((i = 1; i <= HOURS; i++)); do
+    date -d "$i hour ago" '+%FT%H'
+  done
 }
 
-echo -n "$PRE_PROMPT"
+# Helper: sum all integer matches for a given pattern+files, or 0 if none.
+_sum_rg_numbers() {
+  local pattern=$1
+  shift
+  local matches
 
-# I like to use 'ripgrep' instead of 'grep' whenever possible, because speed!
-# https://github.com/BurntSushi/ripgrep
-function findProofs() {
-    local search_command
+  matches=$(rg -INoP "$pattern" "$@" 2>/dev/null || true)
+  if [[ -n $matches ]]; then
+    printf '%s\n' "$matches" | paste -sd+ - | bc
+  else
+    printf '0'
+  fi
+}
 
-    if command -v rg >/dev/null; then
-        search_command="rg --only-matching --regexp"
-    else
-        search_command="grep -o"
+# Helper: nicely print "timestamp  value"
+_print_row() {
+  local ts=$1
+  local val=$2
+  paste <(echo "$ts") <(printf '%6s\n' "$val")
+}
+
+findProofs() {
+  _hours_back | while read -r H; do
+    PROOFS=$(_sum_rg_numbers \
+      "${H}.*Found \K[1-9]\d*(?= V1 proofs)" \
+      ~/.chia/mainnet/log/*harvester-debug.log*)
+    _print_row "$H" "$PROOFS"
+  done | tac
+}
+
+findQualaties() {
+  _hours_back | while read -r H; do
+    QUALS=$(_sum_rg_numbers \
+      "${H}.*Found \K[1-9]\d*(?= V2 qualities)" \
+      ~/.chia/mainnet/log/*harvester-debug.log*)
+    _print_row "$H" "$QUALS"
+  done | tac
+}
+
+sentPartials() {
+  _hours_back | while read -r H; do
+    PARTIALS=$(rg -INc "${H}.*Submitting partial" \
+      ~/.chia/mainnet/log/*farmer-debug.log* 2>/dev/null \
+      | awk '{s+=$1} END{print s+0}')
+    _print_row "$H" "$PARTIALS"
+  done | tac
+}
+
+farmingStatus() {
+  rg --no-filename 'Launching.*chia_farmer|Daemon Server stopping.*chia_farmer' \
+    ~/.chia/mainnet/log/daemon-debug.log* 2>/dev/null \
+    | sort >"$TMPOUT_FARMING_EVENTS" || true
+
+  _hours_back | while read -r H; do
+    LAST_EVENT=$(awk -v h="$H" '$1 < h' "$TMPOUT_FARMING_EVENTS" | tail -n1)
+    FARMING_STATUS=0
+    if [[ -n $LAST_EVENT ]] && [[ $LAST_EVENT == *"Launching"* ]]; then
+      FARMING_STATUS=1
     fi
-
-    local log_dir="$HOME/.chia/mainnet/log"
-    local harvester_log="$log_dir/harvester-debug.log"
-    local debug_log="$log_dir/debug.log"
-    local log_files=()
-
-    # Check if harvester-debug.log files exist
-    if [[ -f "$harvester_log" ]] || [[ -f "${harvester_log}.1" ]]; then
-        log_files+=("$harvester_log"{,.1,.2,.3,.4})
-    else
-        log_files+=("$debug_log"{,.1,.2,.3,.4,.5,.6})
-    fi
-
-    for H in $(seq 1 "$HOURS" | xargs -I {} date -d '{} hour ago' "+%FT%H"); do
-        PROOFS=0
-        for file in "${log_files[@]}"; do
-            if [ -f "$file" ]; then
-                PROOFS=$((PROOFS + $(${search_command} "$H:[0-5][0-9]:[0-5][0-9].*Found [1-9] proofs" "$file" | wc -l)))
-            fi
-        done
-        paste <(echo "$H") <(printf "%6s\n" "$PROOFS")
-    done | tac
+    _print_row "$H" "$FARMING_STATUS"
+  done | tac
 }
 
-# I like to use 'choose' as an alternative to 'cut' and (sometimes) 'awk'
-# https://github.com/theryangeary/choose
-function processLine() {
-    if command -v choose >/dev/null; then
-        choose $0
-    else
-        awk '{print $1}'
-    fi
+# Compute SUM / AVG / MAX for a series file (using column N, default 1)
+seriesStats() {
+  local file="$1"
+  local col="${2:-1}"
+  local vals max sum avg
+
+  if [[ ! -s "$file" ]]; then
+    # SUM AVG MAX
+    echo "0 0 1"
+    return
+  fi
+
+  vals=$(choose "$col" < "$file")
+
+  max=$(printf '%s\n' "$vals" | sort -n | tail -n1)
+  [[ -z $max || $max -eq 0 ]] && max=1
+
+  sum=$(printf '%s\n' "$vals" | paste -sd+ - | bc)
+  avg=$(echo "scale=0; $sum / $HOURS" | bc -l)
+
+  echo "$sum $avg $max"
 }
 
-function proofGraph() {
-    # Check for uplot
-    if ! [ -x "$(command -v uplot)" ]; then
-        echo 'Error: uplot is not installed, or installed gem is not added to PATH' >&2
-        echo 'Get it at:  https://github.com/red-data-tools/YouPlot' >&2
-        echo 'Get it with:  gem install youplot' >&2
-        exit 1
-    fi
-    findProofs > "$TMPOUT" &
-    spinner
-    echo ""
-    LOW=$(cat "$TMPOUT" | choose 1 | sort -n -r | tail -n1)
-    MAX=$(cat "$TMPOUT" | choose 1 | sort -n | tail -n1)
-    SUM=$(cat "$TMPOUT" | choose 1 | paste -sd+ | bc)
-    AVG=$(echo "scale=0; $SUM / $HOURS" | bc -l)
-    cat "$TMPOUT" |
-        choose 1 |
-        tac |
-        nl -n ln |
-        tac |
-        column -t |
-        tr -s ' ' ',' |
-        sed 's/^/-/' |
-        uplot line \
-            --canvas braille \
-            -d , \
-            -b barplot \
-            -w $(($(tput cols) - 30)) \
-            -h 15 \
-            --xlabel "Hour" \
-            --ylabel "Proofs" \
-            -t "Proofs Per Hour" \
-            --xlim -$HOURS,0 \
-            --ylim $LOW,$MAX
-    echo "${purple}Average${reset}: ${blue}$AVG${reset}"
-    echo "${red}Total${reset}:   ${blue}$SUM${reset}"
+collectSelected() {
+  IFS=',' read -ra COLS <<< "$DATA_COLS"
+  for col in "${COLS[@]}"; do
+    case "$col" in
+      PROOFS)    findProofs >"$TMPOUT" & ;;
+      QUALITIES) findQualaties >"$TMPOUT5" & ;;
+      PARTIALS)  sentPartials >"$TMPOUT2" & ;;
+      FARMING)
+        # We need farming status if graph is requested OR if user asked for it specifically 
+        # (though it's only useful in graph, we collect it if asked)
+        farmingStatus >"$TMPOUT4" & 
+        ;;
+    esac
+done
+  wait
 }
 
-function printProofs() {
-    findProofs > "$TMPOUT" &
-    spinner
-    SUM=$(cat "$TMPOUT" | choose 1 | paste -sd+ | bc)
-    AVG=$(echo "scale=0; $SUM / $HOURS" | bc -l)
+# Multi-series graph: dynamic columns
+constructGraph() {
+  # Prepare X axis (Time: -HOURS to -1)
+  seq -"$HOURS" -1 > "${TMPOUT3}.x" 
+  
+  FILES_TO_PASTE="${TMPOUT3}.x"
+  FARMING_COL_IDX=0
+  CURRENT_COL=2 # 1 is X
+  TITLE_PARTS=""
+  
+  IFS=',' read -ra COLS <<< "$DATA_COLS"
+  for col in "${COLS[@]}"; do
+    case "$col" in
+      PROOFS)
+        choose 1 < "$TMPOUT" > "$TMPOUT_VALS_P"
+        FILES_TO_PASTE="$FILES_TO_PASTE $TMPOUT_VALS_P"
+        TITLE_PARTS="${TITLE_PARTS} Proofs / "
+        ((CURRENT_COL++))
+        ;;
+      QUALITIES)
+        choose 1 < "$TMPOUT5" > "$TMPOUT_VALS_Q"
+        FILES_TO_PASTE="$FILES_TO_PASTE $TMPOUT_VALS_Q"
+        TITLE_PARTS="${TITLE_PARTS}Qualities / "
+        ((CURRENT_COL++))
+        ;;
+      PARTIALS)
+        choose 1 < "$TMPOUT2" > "$TMPOUT_VALS_R"
+        FILES_TO_PASTE="$FILES_TO_PASTE $TMPOUT_VALS_R"
+        TITLE_PARTS="${TITLE_PARTS}Partials / "
+        ((CURRENT_COL++))
+        ;;
+      FARMING)
+        choose 1 < "$TMPOUT4" > "$TMPOUT_VALS_F"
+        FILES_TO_PASTE="$FILES_TO_PASTE $TMPOUT_VALS_F"
+        FARMING_COL_IDX=$CURRENT_COL
+        TITLE_PARTS="${TITLE_PARTS}Farming (scaled) / "
+        ((CURRENT_COL++))
+        ;;
+    esac
+done
+  
+  # Remove trailing slash from title
+  TITLE_PARTS=${TITLE_PARTS% / }
+  
+  # Check if we have any data
+  if [[ "$FILES_TO_PASTE" == "${TMPOUT3}.x" ]]; then
+    echo "No valid data columns selected for graph."
+    return
+  fi
 
-    # Line drawing characters
-    local hl="─" vl="│" tlc="╭" trc="╮" blc="╰" brc="╯" ml="├" mr="┤" mc="┼" tc="┬" bc="┴"
+  # Create CSV
+  paste $FILES_TO_PASTE | tr '\t' ',' > "$TMPOUT3"
 
-    # Column widths
-    local c1w=16 c2w=7 h1w=15 h2w=7
+  # Scale farming if present
+  if [[ $FARMING_COL_IDX -gt 0 ]]; then
+      # Calculate MAX from other columns
+      read MAX < <(awk -F',' -v fcol="$FARMING_COL_IDX" ' 
+      {
+          for(i=2;i<=NF;i++){
+              if(i!=fcol){
+                  if($i>m) m=$i
+              }
+          }
+      }
+      END { if(m=="" || m==0) m=1; print m }
+      ' "$TMPOUT3")
 
-    # Helper function to create horizontal lines
-    draw_line() {
-        for ((i = 0; i < $1; i++)); do
-            printf "%s" "$2"
-        done
-    }
+      awk -F',' -v max="$MAX" -v fcol="$FARMING_COL_IDX" ' 
+      {
+          offline = (1 - $fcol);
+          $fcol = offline * max;
+          OFS=",";
+          $1=$1; # rebuild record
+          print $0;
+      }' "$TMPOUT3" > "${TMPOUT3}.scaled"
+      mv "${TMPOUT3}.scaled" "$TMPOUT3"
+  fi
 
-    # Top border
-    printf "%s" "$tlc"
-    draw_line $c1w $hl
-    printf "%s" "$tc"
-    draw_line $c2w $hl
-    printf "%s\n" "$trc"
+  # Plot
+  cat "$TMPOUT3" \
+    | uplot lines \
+        -d , \
+        --canvas braille \
+        -w $(( "$(tput cols)" - 30 )) \
+        -h 15 \
+        --xlabel "Hour (oldest → newest)" \
+        --ylabel "Count" \
+        -t "$TITLE_PARTS"
 
-    # Header
-    printf "%s%-*s%14s%*s%s\n" "$vl" "$c1w" "${blue}Hour${reset}" "$vl" "$c2w" "${blue}Proofs${reset} " "$vl"
-
-    # Middle border
-    printf "%s" "$ml"
-    draw_line $c1w $hl
-    printf "%s" "$mc"
-    draw_line $c2w $hl
-    printf "%s\n" "$mr"
-
-    # Content
-    while IFS= read -r line; do
-        local hour="${line%   *}"
-        local proofs="${line##* }"
-        local color="$reset" # Default color
-
-        # Calculate percentage difference from the average (modify the threshold as needed)
-        local threshold=35 # Percentage threshold for color coding
-        if [[ "$proofs" -le 9 ]]; then
-            color="$red"
-            hour="${hour% }"
-            proofs=" ${proofs% *}"
-        else
-            local percent_diff=$(awk -v proofs="$proofs" -v AVG="$AVG" 'BEGIN{print (proofs - AVG) / AVG * 100}')
-            if [[ $DEBUG == true ]]; then
-                echo "Hour: $hour, Proofs: $proofs, AVG: $AVG, Percent diff: $percent_diff"
-            fi
-            if (($(echo "$percent_diff < -$threshold" | bc -l))); then
-                color="$yellow"
-            elif (($(echo "$percent_diff > $threshold" | bc -l))); then
-                color="$green"
-            fi
-        fi
-
-        printf "%s%-*s%s     %*s%s\n" "$vl" $(($h1w - 4)) "$hour" "$vl" "$h2w" "${color}$proofs${reset}" "$vl"
-    done < "$TMPOUT"
-
-    # Bottom border
-    printf "%s" "$blc"
-    draw_line $c1w $hl
-    printf "%s" "$bc"
-    draw_line $c2w $hl
-    printf "%s\n" "$brc"
+  echo
 }
 
-if [[ "$GRAPH" == true ]]; then
-    proofGraph
+printTable() {
+  HEADER_LINE="Hour"
+  FILES_TO_PASTE=""
+  FIRST_ACTIVE=""
+
+  IFS=',' read -ra COLS <<< "$DATA_COLS"
+  for col in "${COLS[@]}"; do
+    case "$col" in
+      PROOFS)    FILE="$TMPOUT"; NAME=" Proofs" ;; 
+      QUALITIES) FILE="$TMPOUT5"; NAME="Qualities" ;; 
+      PARTIALS)  FILE="$TMPOUT2"; NAME="Partials" ;; 
+      *) continue ;; # Skip farming or unknown in table
+    esac
+
+    if [[ -z "$FIRST_ACTIVE" ]]; then FIRST_ACTIVE="$FILE"; fi
+    
+    HEADER_LINE="$HEADER_LINE\t$NAME"
+    choose 1 < "$FILE" > "${FILE}.val_table"
+    FILES_TO_PASTE="$FILES_TO_PASTE ${FILE}.val_table"
+  done
+
+  if [[ -z "$FIRST_ACTIVE" ]]; then
+    echo "No valid data columns selected for table (FARMING is graph-only)."
+    return
+  fi
+
+  # Get Time column from the first available data file
+  choose 0 < "$FIRST_ACTIVE" > "$TMPOUT_HOURS"
+  
+  # Calculate column count: 1 (Hour) + number of selected data columns
+  # IFS=',' read -ra COLS <<< "$DATA_COLS" -> COLS is an array, ${#COLS[@]} is the count
+  COL_COUNT=$(( ${#COLS[@]} + 1 ))
+
+  {
+    printf "%b\n" "$HEADER_LINE"
+    paste "$TMPOUT_HOURS" $FILES_TO_PASTE
+  } | ptable "$COL_COUNT" blue
+
+  echo
+}
+
+printSummary() {
+  IFS=',' read -ra COLS <<< "$DATA_COLS"
+  for col in "${COLS[@]}"; do
+    case "$col" in
+      PROOFS)
+        read SUM AVG _ < <(seriesStats "$TMPOUT")
+        echo "Average proofs/hour: $AVG"
+        echo "Total proofs:        $SUM"
+        ;;
+      QUALITIES)
+        read SUM AVG _ < <(seriesStats "$TMPOUT5")
+        echo "Average qualities/hr: $AVG"
+        echo "Total qualities:      $SUM"
+        ;;
+      PARTIALS)
+        read SUM AVG _ < <(seriesStats "$TMPOUT2")
+        echo "Average partials/hr: $AVG"
+        echo "Total partials:      $SUM"
+        ;;
+    esac
+done
+}
+
+SPINNER=$(which spinner 2>/dev/null || true)
+if [[ -n $SPINNER && -f $SPINNER ]]; then
+  # shellcheck source=/dev/null
+  source "$SPINNER"
 else
-    printProofs
-    echo "${purple}Average${reset}: ${blue}$AVG${reset}"
-    echo "${red}Total${reset}:   ${blue}$SUM${reset}"
+  # Fallback: block until background jobs finish
+  _spinner() { wait; }
+fi
+
+# Main Execution
+collectSelected &
+_spinner
+echo -ne "\r"
+
+if [[ $SHOW_TABLE == true ]]; then
+  printTable
+fi
+
+if [[ $SHOW_GRAPH == true ]]; then
+  constructGraph
+fi
+
+if [[ $SHOW_SUMMARY == true ]]; then
+  printSummary
 fi
