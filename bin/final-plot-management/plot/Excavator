@@ -52,14 +52,14 @@ FindDupes() {
     echo "Checking for existing plots..."
     PLOTNAME=$(basename "$WENDY_INODE")
     NEW_SIZE=$(stat --printf='%s' "$WENDY_INODE")
-    
+
     # Find any existing plots with the same name
     EXISTING_PLOT=$(fd -t f "$PLOTNAME" /mnt/plot/ 2>/dev/null)
-    
+
     if [[ -n "$EXISTING_PLOT" ]]; then
         EXISTING_SIZE=$(stat --printf='%s' "$EXISTING_PLOT")
         echo "Found existing plot at: $EXISTING_PLOT"
-        
+
         if [[ $NEW_SIZE -eq $EXISTING_SIZE ]]; then
             echo "New plot is the same size as existing plot. Removing new plot and keeping existing one."
             rm "$WENDY_INODE"
@@ -147,9 +147,9 @@ IterateMounts() {
     TRANSFER_DONE=0
     while read -r PLOT_DIR; do
         PLOTNAME="$(basename "$WENDY_INODE")"
-        MOUNT_PATH="$(dirname "$PLOT_DIR")"
-        echo "Evaluating $PLOT_DIR/..."
-        
+        MOUNT_PATH="$PLOT_DIR"
+        echo "Evaluating ${PLOT_DIR%/}/..."
+
         # Test I/O before proceeding
         if ! TestIO "$MOUNT_PATH"; then
             echo "Skipping $MOUNT_PATH due to I/O test failure."
@@ -160,23 +160,23 @@ IterateMounts() {
         PLOTSIZE=$(stat --printf='%s' "$WENDY_INODE")
         AVAIL=$(df --output=avail -B1 "$MOUNT_PATH" | tail -n 1)
         PLOTCOUNT="$((AVAIL / PLOTSIZE))"
-        
+
         if [[ $PLOTCOUNT -gt 0 ]]; then
             echo "Moving $WENDY_INODE to $MOUNT_PATH/cuda/..."
             mkdir -p "${MOUNT_PATH}/cuda"
-            rsync -a --progress --remove-source-files "$WENDY_INODE" "$MOUNT_PATH"/cuda/
+            rsync -a --progress --remove-source-files "$WENDY_INODE" "${MOUNT_PATH%/}/cuda/"
             if [[ $? -ne 0 ]]; then
                 echo "ERROR: rsync failed. Transfer did not complete." >&2
                 continue
             fi
-            echo "$PLOTNAME has been moved to $MOUNT_PATH/cuda/, and is ready for farming!"
+            echo "$PLOTNAME has been moved to $MOUNT_PATH/cuda, and is ready for farming!"
             TRANSFER_DONE=1
             break
         else
             echo "Not enough free space on $MOUNT_PATH, skipping."
         fi
     done < "$MOUNT_LIST"
-    
+
     if [[ $TRANSFER_DONE -eq 0 ]]; then
         echo "Could not find a suitable mount with enough free space."
         exit 1

@@ -180,7 +180,6 @@ IterateMounts() {
 
 # Main execution
 CheckDeps
-CheckPath
 CheckInteractive
 FindMounts
 CheckMountsRW
