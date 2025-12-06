@@ -21,7 +21,7 @@ The Supplies Index of this `README.md` file updates automatically when an Action
       - 📄 [ptable](bin/extra/ptable)
       - 📄 [add\-nodes](bin/extra/add-nodes)
       - 📄 [pph](bin/extra/pph)
-         - _shows Chia Blockchain proofs found per hour, over the past 'n' hours_
+         - _shows proofs/partials/qualities per hour over the past N hours._
       - 📄 [bench\-chia](bin/extra/bench-chia)
       - 📄 [sunblock](bin/extra/sunblock)
       - 📄 [proofdistrib](bin/extra/proofdistrib)
